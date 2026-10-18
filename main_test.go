@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"manga-downloader/parsers"
+	"manga-downloader/themes"
 )
 
 var flagURL = flag.String("url", "", "URL chapter untuk dites")
@@ -90,4 +91,20 @@ func TestMangaParser(t *testing.T) {
 	t.Logf("[✓ 4/4] Sampel Gambar    : %s", sample)
 	t.Logf("==================================================")
 	t.Logf("[SUKSES] Parser '%s' BERFUNGSI 100%%!", p.Name())
+}
+
+func TestImageFormatConversion(t *testing.T) {
+	// 1. JPEG magic bytes
+	jpegBytes := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10}
+	resBytes, ext, err := themes.EnsureJPGorPNG(jpegBytes, ".jpg")
+	if err != nil || ext != ".jpg" || len(resBytes) != len(jpegBytes) {
+		t.Errorf("JPEG check failed: ext=%s, err=%v", ext, err)
+	}
+
+	// 2. PNG magic bytes
+	pngBytes := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0x00}
+	resBytes, ext, err = themes.EnsureJPGorPNG(pngBytes, ".png")
+	if err != nil || ext != ".png" || len(resBytes) != len(pngBytes) {
+		t.Errorf("PNG check failed: ext=%s, err=%v", ext, err)
+	}
 }

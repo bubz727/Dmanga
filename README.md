@@ -1,59 +1,134 @@
-# CLI Manga Downloader (Go)
+# CLI Manga Downloader
 
-Aplikasi downloader komik/manga CLI yang super ringan, cepat, dan to-the-point.
-
-## Fitur Utama
-- **To-The-Point:** Buka CMD di folder mana saja, jalankan `downloadManga`, masukkan URL chapter, beres.
-- **Auto Detect Domain:** Otomatis mengenali situs manga berdasarkan URL.
-- **Anti Recompile (`rules.json`):** Jika situs ganti CSS selector atau ganti domain, kamu hanya perlu mengedit file `rules.json` tanpa perlu compile ulang kodenya.
-- **Download Paralel:** Menggunakan Goroutines (5 worker bersamaan) sehingga download puluhan gambar selesai dalam hitungan detik.
-- **Format Rapi:** Otomatis memberi nama berurutan 3 digit (`001.jpg`, `002.jpg`, `003.jpg`, dst).
+A lightweight, high-performance command-line manga and comic downloader written in Go.
 
 ---
 
-## Struktur Proyek
+## Features
+
+- High Concurrency: Downloads images in parallel using worker pools for fast downloads.
+- Multi-Link Support: Download multiple chapter URLs in a single command by separating URLs with spaces or pipe (`|`) characters.
+- Automatic Format Normalization: Non-standard image formats (such as WebP and GIF) are automatically converted to high-quality JPEG (`.jpg`). Original JPEG and PNG files are preserved without re-encoding.
+- Built-in Image Descrambling: Native puzzle-tile descrambler for Japanese platforms running Comici and GigaViewer (such as Shonen Jump+, Tonari no Young Jump, and Comic Days).
+- Informative Logging: Detailed progress output displaying original filenames, target filenames, and pixel dimensions (e.g., `sample.webp -> 001.jpg (800x1200)`).
+- Zero-Padding Output: Downloads are sequentially formatted (`001.jpg`, `002.jpg`, etc.) directly into the current directory or dedicated chapter folders.
+- Diagnostic Mode: Test parser extraction and check for anti-bot blocks without downloading files.
+
+---
+
+## Supported Platforms
+
+The downloader supports over 60 manga websites across various reader architectures:
+
+- MangaFire (`mangafire.to`)
+- Asura Scans (`asurascans.com`)
+- WeebCentral (`weebcentral.com`)
+- Rawkuma (`rawkuma.net`)
+- MangaDex (`mangadex.org`)
+- MANGA Plus by SHUEISHA (`mangaplus.shueisha.co.jp`)
+- Naver Webtoon (`comic.naver.com`, `m.comic.naver.com`)
+- MangaBall (`mangaball.com`, `mangaball.net`)
+- XComic (`xcomic.me`, `xcomic.net`, `comik.to`, `yona.to`)
+- GigaViewer Platforms (24 domains, including `comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `kuragebunch.com`, `sunday-webry.com`)
+- Comici Platforms (25 domains, including `younganimal.com`, `championcross.jp`, `bigcomics.jp`, `hanayume.com`)
+
+---
+
+## Project Structure
 
 ```text
-C:\Bubz\CLI-Manga-Downloader\
-├── go.mod             # Definisi dependensi Go
-├── rules.json         # Konfigurasi selector & domain tiap situs (bisa diedit di Notepad)
-├── main.go            # Kode utama (Router domain, HTML extractor, paralel downloader)
-└── README.md          # Petunjuk penggunaan
+├── themes/               # Core framework templates & descrambling engine
+│   ├── base.go           # Parser interfaces, HTTP client, and URL helpers
+│   ├── descramble.go     # Image tile descrambler (Comici, GigaViewer) & format converter
+│   ├── madara.go         # WordPress Madara CMS base template
+│   ├── mangathemesia.go  # MangaThemesia CMS base template
+│   └── natsu.go          # Natsu reader base template
+├── parsers/              # Self-registering site parsers
+│   ├── comici.go         # Comici reader platforms (25 domains)
+│   ├── gigaviewer.go     # GigaViewer reader platforms (24 domains)
+│   ├── mangafire.go      # MangaFire VRF API signer & extractor
+│   ├── mangadex.go       # MangaDex At-Home API parser
+│   ├── mangaplus.go      # Shueisha MangaPlus Protobuf stream parser
+│   ├── registry.go       # Parser auto-registry
+│   └── ...               # Additional site parsers
+├── main.go               # CLI entry point, multi-link handler, and downloader
+├── main_test.go          # Unit tests and diagnostic test runner
+├── CONTRIBUTING.md       # Developer guide for adding new parsers
+└── README.md             # Project documentation
 ```
 
 ---
 
-## Cara Build & Pasang di Windows
+## Installation & Build
 
-1. **Install Go (jika belum ada):**
-   ```powershell
-   winget install GoLang.Go
-   ```
-2. **Download dependensi & Compile:**
-   ```powershell
-   go mod tidy
-   go build -o downloadManga.exe
-   ```
-3. **Pasang ke Windows PATH (Agar bisa dipanggil dari folder mana saja):**
-   - Buat satu folder tetap, misalnya `C:\Tools\`
-   - Pindahkan `downloadManga.exe` dan `rules.json` ke folder `C:\Tools\`
-   - Tambahkan `C:\Tools` ke `System Environment Variables (PATH)` Windows.
+### 1. Prerequisites
+- Go 1.22 or later installed on your system.
+
+### 2. Build Binary
+Compile an optimized, standalone executable:
+
+```powershell
+go build -ldflags="-s -w" -o downloadManga.exe .
+```
+
+### 3. Add to System PATH (Optional)
+To run the downloader from any folder in Command Prompt or PowerShell:
+1. Place `downloadManga.exe` into a permanent directory (e.g., `C:\Tools\`).
+2. Add `C:\Tools` to your Windows `PATH` environment variables.
 
 ---
 
-## Cara Penggunaan
+## Usage
 
-Cukup buka CMD/Terminal di folder tempat kamu ingin menyimpan gambar:
+### Single Chapter Download
+Navigate to your desired target folder and run:
 
 ```cmd
-C:\Komik\Solo Leveling\Chapter 01> downloadManga
+downloadManga https://mangafire.to/title/ro8ro-all-class-awakening-god-slayer/chapter/9479428
 ```
-Lalu masukkan URL chapter saat diminta:
-```text
-Masukkan URL Chapter: https://komiku.id/ch/one-piece-chapter-1100/
-```
-Atau langsung jadikan argumen:
+
+Images will be saved directly into the current working directory as `001.jpg`, `002.jpg`, etc.
+
+### Multi-Link Download
+You can download multiple chapters simultaneously by separating URLs with spaces or pipe (`|`) characters:
+
 ```cmd
-downloadManga https://komiku.id/ch/one-piece-chapter-1100/
+downloadManga https://example.com/chapter-1 https://example.com/chapter-2
 ```
-Gambar akan langsung ter-download ke folder tersebut dengan nama `001.jpg`, `002.jpg`, dst.
+
+Or using the pipe delimiter:
+
+```cmd
+downloadManga "https://example.com/chapter-1 | https://example.com/chapter-2"
+```
+
+In multi-link mode, each chapter is saved in its own subfolder (`Chapter 1`, `Chapter 2`, etc.).
+
+### Interactive Prompt Mode
+Run `downloadManga` without arguments:
+
+```cmd
+downloadManga
+```
+The program will prompt you to enter one or multiple chapter URLs.
+
+### Diagnostic Test Mode (-t)
+Inspect domain routing, HTTP status, anti-bot protection, and image extraction count without downloading any files:
+
+```cmd
+downloadManga -t https://comic-days.com/episode/3270296674374344033
+```
+
+---
+
+## Testing
+
+Run unit tests:
+```powershell
+go test -v .
+```
+
+Run a live diagnostic check against a specific URL:
+```powershell
+go test -v . -args "https://comic-days.com/episode/3270296674374344033"
+```

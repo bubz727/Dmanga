@@ -2,7 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	_ "golang.org/x/image/webp"
 
 	"manga-downloader/parsers"
 	"manga-downloader/themes"
@@ -47,54 +54,103 @@ func main() {
 	}
 	fmt.Printf("[*] Folder simpan: %s\n\n", targetDir)
 
-	chapterURL := ""
+	rawInput := ""
 	if len(os.Args) > 1 {
-		chapterURL = os.Args[1]
+		rawInput = strings.Join(os.Args[1:], " ")
 	} else {
-		fmt.Print("Masukkan URL Chapter: ")
+		fmt.Print("Masukkan URL Chapter (bisa multi-link dipisah spasi atau |): ")
 		scanner := bufio.NewScanner(os.Stdin)
 		if scanner.Scan() {
-			chapterURL = strings.TrimSpace(scanner.Text())
+			rawInput = strings.TrimSpace(scanner.Text())
 		}
 	}
 
-	if chapterURL == "" {
-		fmt.Println("[!] URL tidak boleh kosong.")
+	urls := parseInputURLs(rawInput)
+	if len(urls) == 0 {
+		fmt.Println("[!] Tidak ada URL chapter yang valid.")
 		return
 	}
 
-	parsedURL, err := url.Parse(chapterURL)
-	if err != nil || parsedURL.Host == "" {
-		fmt.Println("[!] Format URL tidak valid.")
-		return
+	isMulti := len(urls) > 1
+	if isMulti {
+		fmt.Printf("[+] Mode Multi-Link Terdeteksi (%d Chapter)\n\n", len(urls))
 	}
 
-	parser, err := parsers.FindParser(parsedURL.Host)
-	if err != nil {
-		fmt.Printf("[!] %v\n", err)
-		return
+	for idx, chapterURL := range urls {
+		parsedURL, err := url.Parse(chapterURL)
+		if err != nil || parsedURL.Host == "" {
+			fmt.Printf("[!] [%d/%d] Format URL tidak valid: %s\n\n", idx+1, len(urls), chapterURL)
+			continue
+		}
+
+		parser, err := parsers.FindParser(parsedURL.Host)
+		if err != nil {
+			fmt.Printf("[!] [%d/%d] %v\n\n", idx+1, len(urls), err)
+			continue
+		}
+
+		if isMulti {
+			fmt.Printf("==================================================\n")
+			fmt.Printf("[%d/%d] Memproses Chapter: %s\n", idx+1, len(urls), chapterURL)
+			fmt.Printf("[+] Parser: %s\n", parser.Name())
+		} else {
+			fmt.Printf("[+] Menggunakan Parser: %s\n", parser.Name())
+		}
+
+		fmt.Println("[*] Mengambil daftar halaman gambar...")
+		imageURLs, err := parser.GetImages(chapterURL)
+		if err != nil {
+			fmt.Printf("[!] Gagal mengekstrak gambar: %v\n\n", err)
+			continue
+		}
+
+		total := len(imageURLs)
+		if total == 0 {
+			fmt.Println("[!] Tidak ada gambar yang ditemukan.")
+			continue
+		}
+
+		// Tentukan folder simpan
+		saveDir := targetDir
+		if isMulti {
+			folderName := fmt.Sprintf("Chapter %d", idx+1)
+			saveDir = filepath.Join(targetDir, folderName)
+			if err := os.MkdirAll(saveDir, 0755); err != nil {
+				fmt.Printf("[!] Gagal membuat folder '%s': %v\n\n", saveDir, err)
+				continue
+			}
+			fmt.Printf("[+] Target Folder: %s\n", folderName)
+		}
+
+		fmt.Printf("[+] Ditemukan %d gambar. Memulai proses download...\n\n", total)
+		downloadAll(imageURLs, saveDir, parsedURL.Host, parser)
+
+		if isMulti {
+			fmt.Printf("\n[✓] [%d/%d] Selesai diunduh!\n\n", idx+1, len(urls))
+		} else {
+			fmt.Println("\n[✓] Selesai! Semua gambar berhasil disimpan.")
+		}
 	}
 
-	fmt.Printf("[+] Menggunakan Parser: %s\n", parser.Name())
-	fmt.Println("[*] Mengambil daftar halaman gambar...")
-
-	imageURLs, err := parser.GetImages(chapterURL)
-	if err != nil {
-		fmt.Printf("[!] Gagal mengekstrak gambar: %v\n", err)
-		return
+	if isMulti {
+		fmt.Println("==================================================")
+		fmt.Println("[✓] SEMUA CHAPTER TELAH SELESAI DIUNDUH!")
+		fmt.Println("==================================================")
 	}
+}
 
-	total := len(imageURLs)
-	if total == 0 {
-		fmt.Println("[!] Tidak ada gambar yang ditemukan.")
-		return
+// parseInputURLs memisahkan input yang bisa berisi beberapa URL sekaligus
+func parseInputURLs(rawInput string) []string {
+	replacer := strings.NewReplacer("|", " ", ",", " ", "\n", " ", "\r", " ", "\t", " ")
+	tokens := strings.Fields(replacer.Replace(rawInput))
+	var urls []string
+	for _, tok := range tokens {
+		tok = strings.TrimSpace(tok)
+		if strings.HasPrefix(tok, "http://") || strings.HasPrefix(tok, "https://") {
+			urls = append(urls, tok)
+		}
 	}
-
-	fmt.Printf("[+] Ditemukan %d gambar. Memulai proses download...\n\n", total)
-
-	downloadAll(imageURLs, targetDir, parsedURL.Host, parser)
-
-	fmt.Println("\n[✓] Selesai! Semua gambar berhasil disimpan.")
+	return urls
 }
 
 // runDiagnosticTest menjalankan diagnosa URL tanpa mendownload gambarnya
@@ -184,14 +240,17 @@ func downloadAll(imageURLs []string, targetDir, host string, parser themes.Parse
 			defer func() { <-guard }()
 
 			ext := themes.GetFileExtension(imgURL)
-			fileName := fmt.Sprintf("%03d%s", index+1, ext)
-			filePath := filepath.Join(targetDir, fileName)
+			baseName := fmt.Sprintf("%03d", index+1)
 
-			err := downloadFile(client, imgURL, filePath, host, parser)
+			savedFileName, origName, w, h, err := downloadFile(client, imgURL, targetDir, baseName, ext, host, parser)
 			if err != nil {
-				fmt.Printf("[%02d/%02d] [GAGAL] %s: %v\n", index+1, total, fileName, err)
+				fmt.Printf("[%02d/%02d] [GAGAL] %s: %v\n", index+1, total, origName, err)
 			} else {
-				fmt.Printf("[%02d/%02d] [OK] Tersimpan: %s\n", index+1, total, fileName)
+				dimStr := ""
+				if w > 0 && h > 0 {
+					dimStr = fmt.Sprintf(" (%dx%d)", w, h)
+				}
+				fmt.Printf("[%02d/%02d] [OK] %s -> %s%s\n", index+1, total, origName, savedFileName, dimStr)
 			}
 		}(i, rawURL)
 	}
@@ -199,15 +258,24 @@ func downloadAll(imageURLs []string, targetDir, host string, parser themes.Parse
 	wg.Wait()
 }
 
-func downloadFile(client *http.Client, fileURL, destPath, host string, parser themes.Parser) error {
+func downloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt, host string, parser themes.Parser) (string, string, int, int, error) {
 	fetchURL := fileURL
 	if idx := strings.Index(fetchURL, "#"); idx != -1 {
 		fetchURL = fetchURL[:idx]
 	}
 
+	// Ambil nama file asli dari URL
+	origName := "image"
+	if parsed, err := url.Parse(fetchURL); err == nil {
+		b := filepath.Base(parsed.Path)
+		if b != "" && b != "/" && b != "." {
+			origName = b
+		}
+	}
+
 	req, err := http.NewRequest("GET", fetchURL, nil)
 	if err != nil {
-		return err
+		return "", origName, 0, 0, err
 	}
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -215,20 +283,20 @@ func downloadFile(client *http.Client, fileURL, destPath, host string, parser th
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return "", origName, 0, 0, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("status code %d", resp.StatusCode)
+		return "", origName, 0, 0, fmt.Errorf("status code %d", resp.StatusCode)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return "", origName, 0, 0, err
 	}
 
-	// Jika parser memiliki logic ImageProcessor (seperti descrambler), jalankan prosesnya
+	// 1. Jika parser memiliki logic ImageProcessor (seperti descrambler), jalankan prosesnya
 	if processor, ok := parser.(themes.ImageProcessor); ok {
 		processed, err := processor.ProcessImage(bodyBytes, fileURL)
 		if err == nil {
@@ -236,12 +304,29 @@ func downloadFile(client *http.Client, fileURL, destPath, host string, parser th
 		}
 	}
 
+	// 2. Pastikan format akhir adalah JPG atau PNG:
+	// Jika bukan JPG atau PNG (seperti WebP, GIF), otomatis convert ke JPG
+	finalBytes, finalExt, err := themes.EnsureJPGorPNG(bodyBytes, defaultExt)
+	if err == nil {
+		bodyBytes = finalBytes
+		defaultExt = finalExt
+	}
+
+	// 3. Baca dimensi gambar (lebar x tinggi)
+	width, height := 0, 0
+	if cfg, _, err := image.DecodeConfig(bytes.NewReader(bodyBytes)); err == nil {
+		width, height = cfg.Width, cfg.Height
+	}
+
+	fileName := fmt.Sprintf("%s%s", baseName, defaultExt)
+	destPath := filepath.Join(targetDir, fileName)
+
 	out, err := os.Create(destPath)
 	if err != nil {
-		return err
+		return "", origName, width, height, err
 	}
 	defer out.Close()
 
 	_, err = out.Write(bodyBytes)
-	return err
+	return fileName, origName, width, height, err
 }

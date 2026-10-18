@@ -11,6 +11,8 @@ import (
 	_ "image/png"
 	"net/url"
 	"strings"
+
+	_ "golang.org/x/image/webp"
 )
 
 // DescrambleComici menyusun kembali potongan puzzle gambar Comici 4x4
@@ -204,4 +206,37 @@ func ProcessImageDescramble(rawBytes []byte, imageURL string) ([]byte, error) {
 	}
 
 	return out.Bytes(), nil
+}
+
+// EnsureJPGorPNG memastikan data gambar berformat JPEG atau PNG.
+// Jika bukan (misal WebP, GIF), gambar otomatis dikonversi ke JPEG (.jpg).
+// Jika sudah JPEG atau PNG, byte mentah asli dikembalikan tanpa re-encode.
+func EnsureJPGorPNG(rawBytes []byte, originalExt string) ([]byte, string, error) {
+	// 1. Cek JPEG magic bytes: FF D8 FF
+	if len(rawBytes) >= 3 && rawBytes[0] == 0xFF && rawBytes[1] == 0xD8 && rawBytes[2] == 0xFF {
+		return rawBytes, ".jpg", nil
+	}
+
+	// 2. Cek PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
+	if len(rawBytes) >= 8 && rawBytes[0] == 0x89 && rawBytes[1] == 0x50 && rawBytes[2] == 0x4E && rawBytes[3] == 0x47 &&
+		rawBytes[4] == 0x0D && rawBytes[5] == 0x0A && rawBytes[6] == 0x1A && rawBytes[7] == 0x0A {
+		return rawBytes, ".png", nil
+	}
+
+	// 3. Jika bukan JPG atau PNG (seperti WebP atau GIF), decode dan konversi ke JPG
+	img, _, err := image.Decode(bytes.NewReader(rawBytes))
+	if err != nil {
+		if originalExt == "" {
+			originalExt = ".jpg"
+		}
+		return rawBytes, originalExt, nil
+	}
+
+	var buf bytes.Buffer
+	err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 95})
+	if err != nil {
+		return rawBytes, originalExt, nil
+	}
+
+	return buf.Bytes(), ".jpg", nil
 }

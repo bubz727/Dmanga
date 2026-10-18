@@ -1,4 +1,4 @@
-package themes
+package core
 
 import (
 	"fmt"
@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"manga-downloader/core"
 )
 
 // Parser is the primary interface implemented by every website parser
@@ -54,7 +53,7 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 
 	if parsed.Host != "" {
 		req.Header.Set("Referer", fmt.Sprintf("https://%s/", parsed.Host))
-		core.ApplySessionHeaders(req, parsed.Host)
+		ApplySessionHeaders(req, parsed.Host)
 	}
 
 	for k, v := range customHeaders {
@@ -84,11 +83,11 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 	rawHTML := string(bodyBytes)
 
 	// Check if blocked by Cloudflare challenge (403/503 Turnstile / Under Attack)
-	if core.IsCloudflareChallenge(resp.StatusCode, rawHTML, resp.Header) {
-		if core.HasAttemptedSolve(parsed.Host) {
+	if IsCloudflareChallenge(resp.StatusCode, rawHTML, resp.Header) {
+		if HasAttemptedSolve(parsed.Host) {
 			return nil, "", fmt.Errorf("access denied by Cloudflare anti-bot for '%s' (verification already attempted, skipping loop)", parsed.Host)
 		}
-		solvedHTML, err := core.SolveCloudflare(pageURL)
+		solvedHTML, err := SolveCloudflare(pageURL)
 		if err != nil {
 			return nil, "", fmt.Errorf("Cloudflare challenge bypass failed: %w", err)
 		}

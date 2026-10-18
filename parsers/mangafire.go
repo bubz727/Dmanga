@@ -13,7 +13,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 const (
@@ -104,7 +103,7 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 
 	// If URL is /read/..., fetch the page to look for data-id
 	if chapterID == "" || strings.HasPrefix(cleanPath, "read/") {
-		doc, rawHTML, err := themes.FetchHTML(chapterURL, map[string]string{
+		doc, rawHTML, err := core.FetchHTML(chapterURL, map[string]string{
 			"Referer": fmt.Sprintf("https://%s/", baseHost),
 		})
 		if err == nil {
@@ -174,7 +173,7 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 
 	var images []string
 	for _, page := range res.Data.Pages {
-		clean := themes.CleanImageURL(page.URL, baseHost)
+		clean := core.CleanImageURL(page.URL, baseHost)
 		if clean != "" {
 			images = append(images, clean)
 		}
@@ -184,5 +183,5 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewMangaFire())
+	core.Register(NewMangaFire())
 }

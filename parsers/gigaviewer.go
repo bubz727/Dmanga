@@ -9,17 +9,16 @@ import (
 	"strings"
 
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 type GigaViewerParser struct{}
 
-func NewGigaViewerParser() themes.Parser {
+func NewGigaViewerParser() core.Parser {
 	return &GigaViewerParser{}
 }
 
 func init() {
-	Register(NewGigaViewerParser())
+	core.Register(NewGigaViewerParser())
 }
 
 func (p *GigaViewerParser) Name() string {
@@ -74,7 +73,7 @@ func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
 		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
 	}
 
-	doc, rawHTML, err := themes.FetchHTML(chapterURL, map[string]string{
+	doc, rawHTML, err := core.FetchHTML(chapterURL, map[string]string{
 		"Referer": fmt.Sprintf("https://%s/", parsed.Host),
 	})
 	if err != nil {
@@ -136,5 +135,5 @@ func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
 
 // ProcessImage descrambles GigaViewer puzzle image tiles before saving to file
 func (p *GigaViewerParser) ProcessImage(rawBytes []byte, imageURL string) ([]byte, error) {
-	return themes.ProcessImageDescramble(rawBytes, imageURL)
+	return core.ProcessImageDescramble(rawBytes, imageURL)
 }

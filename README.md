@@ -45,21 +45,26 @@ The downloader supports over 60 manga websites across various reader architectur
 ## Project Structure
 
 ```text
-├── themes/               # Core framework templates & descrambling engine
-│   ├── base.go           # Parser interfaces, HTTP client, and URL helpers
-│   ├── descramble.go     # Image tile descrambler (Comici, GigaViewer) & format converter
-│   ├── madara.go         # WordPress Madara CMS base template
+├── core/                 # Core framework engine, registry, networking, & image pipeline
+│   ├── base.go           # Core Parser & ImageProcessor interfaces, FetchHTML, GetFileExtension
+│   ├── registry.go       # Central parser registry: Register, FindParser, GetAllParsers
+│   ├── descramble.go     # Image tile descrambler & JPEG/PNG format normalizer
+│   ├── downloader.go     # Concurrent worker pool and file writing pipeline
+│   ├── diagnostic.go     # Anti-bot and parser verification suite
+│   ├── cli.go            # CLI arguments, help formatting, and parser listing
+│   ├── cloudflare.go     # Cloudflare Turnstile hybrid browser solver
+│   └── errors.go         # Standard project error types
+├── themes/               # Reusable CMS base templates
 │   ├── mangathemesia.go  # MangaThemesia CMS base template
 │   └── natsu.go          # Natsu reader base template
 ├── parsers/              # Self-registering site parsers
 │   ├── comici.go         # Comici reader platforms (25 domains)
-│   ├── gigaviewer.go     # GigaViewer reader platforms (24 domains)
+│   ├── gigaviewer.go     # GigaViewer reader platforms (25 domains)
 │   ├── mangafire.go      # MangaFire VRF API signer & extractor
 │   ├── mangadex.go       # MangaDex At-Home API parser
 │   ├── mangaplus.go      # Shueisha MangaPlus Protobuf stream parser
-│   ├── registry.go       # Parser auto-registry
 │   └── ...               # Additional site parsers
-├── main.go               # CLI entry point, multi-link handler, and downloader
+├── main.go               # Minimal CLI entry point and argument router
 ├── main_test.go          # Unit tests and diagnostic test runner
 ├── CONTRIBUTING.md       # Developer guide for adding new parsers
 └── README.md             # Project documentation

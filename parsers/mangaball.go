@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 type MangaBall struct{}
@@ -97,7 +96,7 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 
 	var images []string
 	for _, raw := range res.Data.Chapter.Pages {
-		clean := themes.CleanImageURL(raw, baseHost)
+		clean := core.CleanImageURL(raw, baseHost)
 		if clean != "" {
 			images = append(images, clean)
 		}
@@ -107,5 +106,5 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewMangaBall())
+	core.Register(NewMangaBall())
 }

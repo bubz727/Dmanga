@@ -8,7 +8,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 // Weloma parser for weloma.net
@@ -40,7 +39,7 @@ func (w *Weloma) GetImages(chapterURL string) ([]string, error) {
 		"Referer": fmt.Sprintf("https://%s/", parsedURL.Host),
 	}
 
-	doc, _, err := themes.FetchHTML(chapterURL, headers)
+	doc, _, err := core.FetchHTML(chapterURL, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +83,7 @@ func (w *Weloma) GetImages(chapterURL string) ([]string, error) {
 				}
 			}
 
-			val = themes.CleanImageURL(val, parsedURL.Host)
+			val = core.CleanImageURL(val, parsedURL.Host)
 			if val != "" && !seen[val] {
 				lower := strings.ToLower(val)
 				if !strings.Contains(lower, "avatar") &&
@@ -112,5 +111,5 @@ func (w *Weloma) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewWeloma())
+	core.Register(NewWeloma())
 }

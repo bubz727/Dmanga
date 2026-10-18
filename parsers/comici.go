@@ -11,17 +11,16 @@ import (
 	"time"
 
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 type ComiciParser struct{}
 
-func NewComiciParser() themes.Parser {
+func NewComiciParser() core.Parser {
 	return &ComiciParser{}
 }
 
 func init() {
-	Register(NewComiciParser())
+	core.Register(NewComiciParser())
 }
 
 func (p *ComiciParser) Name() string {
@@ -83,7 +82,7 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
 	}
 
-	doc, rawHTML, err := themes.FetchHTML(chapterURL, map[string]string{
+	doc, rawHTML, err := core.FetchHTML(chapterURL, map[string]string{
 		"Referer": fmt.Sprintf("https://%s/", parsed.Host),
 	})
 	if err != nil {
@@ -245,5 +244,5 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 
 // ProcessImage descrambles Comici puzzle image tiles before saving to file
 func (p *ComiciParser) ProcessImage(rawBytes []byte, imageURL string) ([]byte, error) {
-	return themes.ProcessImageDescramble(rawBytes, imageURL)
+	return core.ProcessImageDescramble(rawBytes, imageURL)
 }

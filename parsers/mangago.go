@@ -17,7 +17,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 var (
@@ -56,7 +55,7 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 		"Referer": fmt.Sprintf("https://%s/", baseHost),
 	}
 
-	doc, _, err := themes.FetchHTML(chapterURL, headers)
+	doc, _, err := core.FetchHTML(chapterURL, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +64,7 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 	var chapterJSURL string
 	doc.Find("script[src*='chapter.js']").Each(func(i int, s *goquery.Selection) {
 		if src, exists := s.Attr("src"); exists {
-			chapterJSURL = themes.CleanImageURL(src, baseHost)
+			chapterJSURL = core.CleanImageURL(src, baseHost)
 		}
 	})
 
@@ -126,7 +125,7 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 				} else {
 					batchURL = fmt.Sprintf("%s/%d/", baseURL, batchStart)
 				}
-				bDoc, _, bErr := themes.FetchHTML(batchURL, headers)
+				bDoc, _, bErr := core.FetchHTML(batchURL, headers)
 				if bErr != nil {
 					break
 				}
@@ -324,5 +323,5 @@ func unscrambleImageList(imageList, js string) string {
 }
 
 func init() {
-	Register(NewMangago())
+	core.Register(NewMangago())
 }

@@ -33,7 +33,7 @@ func (n *Natsu) ExtractImages(chapterURL string) ([]string, error) {
 		"Origin":  fmt.Sprintf("https://%s", baseHost),
 	}
 
-	doc, _, err := FetchHTML(chapterURL, headers)
+	doc, _, err := core.FetchHTML(chapterURL, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (n *Natsu) ExtractImages(chapterURL string) ([]string, error) {
 			}
 		}
 
-		imgURL = CleanImageURL(imgURL, baseHost)
+		imgURL = core.CleanImageURL(imgURL, baseHost)
 		if imgURL != "" && !seen[imgURL] {
 			lower := strings.ToLower(imgURL)
 			if !strings.Contains(lower, "avatar") && !strings.Contains(lower, "logo") && !strings.Contains(lower, "banner") {

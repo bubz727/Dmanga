@@ -10,7 +10,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 var (
@@ -44,7 +43,7 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 	}
 	baseHost := parsedURL.Host
 
-	doc, rawHTML, err := themes.FetchHTML(chapterURL, map[string]string{
+	doc, rawHTML, err := core.FetchHTML(chapterURL, map[string]string{
 		"Referer": fmt.Sprintf("https://%s/", baseHost),
 	})
 	if err != nil {
@@ -62,7 +61,7 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 			matches := asuraAstroRegex.FindAllStringSubmatch(cleanProps, -1)
 			for _, m := range matches {
 				if len(m) > 1 {
-					cleanURL := themes.CleanImageURL(m[1], baseHost)
+					cleanURL := core.CleanImageURL(m[1], baseHost)
 					if cleanURL != "" && !seen[cleanURL] {
 						seen[cleanURL] = true
 						astroUrls = append(astroUrls, cleanURL)
@@ -118,7 +117,7 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 						if oFloat, ok := orderVal.(float64); ok {
 							orderInt = int(oFloat)
 						}
-						pages = append(pages, PageItem{Order: orderInt, URL: themes.CleanImageURL(uStr, baseHost)})
+						pages = append(pages, PageItem{Order: orderInt, URL: core.CleanImageURL(uStr, baseHost)})
 					}
 				}
 			}
@@ -152,7 +151,7 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 			}
 		}
 
-		imgURL = themes.CleanImageURL(imgURL, baseHost)
+		imgURL = core.CleanImageURL(imgURL, baseHost)
 		if imgURL != "" && !seen[imgURL] {
 			lower := strings.ToLower(imgURL)
 			if !strings.Contains(lower, "logo") && !strings.Contains(lower, "banner") {
@@ -166,5 +165,5 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewAsuraScans())
+	core.Register(NewAsuraScans())
 }

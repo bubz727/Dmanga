@@ -7,7 +7,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 type NaverComic struct{}
@@ -38,7 +37,7 @@ func (n *NaverComic) GetImages(chapterURL string) ([]string, error) {
 		"Referer": fmt.Sprintf("https://%s/", baseHost),
 	}
 
-	doc, _, err := themes.FetchHTML(chapterURL, headers)
+	doc, _, err := core.FetchHTML(chapterURL, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +54,7 @@ func (n *NaverComic) GetImages(chapterURL string) ([]string, error) {
 			}
 		}
 
-		imgURL = themes.CleanImageURL(imgURL, baseHost)
+		imgURL = core.CleanImageURL(imgURL, baseHost)
 		if imgURL != "" && !seen[imgURL] {
 			seen[imgURL] = true
 			images = append(images, imgURL)
@@ -66,5 +65,5 @@ func (n *NaverComic) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewNaverComic())
+	core.Register(NewNaverComic())
 }

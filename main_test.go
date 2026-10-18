@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"manga-downloader/parsers"
-	"manga-downloader/themes"
+	"manga-downloader/core"
+	_ "manga-downloader/parsers"
 )
 
 var flagURL = flag.String("url", "", "Chapter URL to test")
@@ -46,7 +46,7 @@ func TestMangaParser(t *testing.T) {
 	}
 
 	// 1. Check Router / Registry
-	p, err := parsers.FindParser(parsed.Host)
+	p, err := core.FindParser(parsed.Host)
 	if err != nil {
 		t.Fatalf("[FAILED DOMAIN] Domain '%s' is not registered in parser registry!", parsed.Host)
 	}
@@ -96,14 +96,14 @@ func TestMangaParser(t *testing.T) {
 func TestImageFormatConversion(t *testing.T) {
 	// 1. JPEG magic bytes
 	jpegBytes := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10}
-	resBytes, ext, err := themes.EnsureJPGorPNG(jpegBytes, ".jpg")
+	resBytes, ext, err := core.EnsureJPGorPNG(jpegBytes, ".jpg")
 	if err != nil || ext != ".jpg" || len(resBytes) != len(jpegBytes) {
 		t.Errorf("JPEG check failed: ext=%s, err=%v", ext, err)
 	}
 
 	// 2. PNG magic bytes
 	pngBytes := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0x00}
-	resBytes, ext, err = themes.EnsureJPGorPNG(pngBytes, ".png")
+	resBytes, ext, err = core.EnsureJPGorPNG(pngBytes, ".png")
 	if err != nil || ext != ".png" || len(resBytes) != len(pngBytes) {
 		t.Errorf("PNG check failed: ext=%s, err=%v", ext, err)
 	}

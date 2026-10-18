@@ -1,4 +1,4 @@
-package themes
+package core
 
 import (
 	"bytes"

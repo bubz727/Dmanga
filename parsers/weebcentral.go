@@ -7,7 +7,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 type WeebCentral struct{}
@@ -57,7 +56,7 @@ func (w *WeebCentral) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	doc, _, err := themes.FetchHTML(imagesURL, map[string]string{
+	doc, _, err := core.FetchHTML(imagesURL, map[string]string{
 		"Referer": fmt.Sprintf("https://%s/", parsedURL.Host),
 	})
 	if err != nil {
@@ -73,7 +72,7 @@ func (w *WeebCentral) GetImages(chapterURL string) ([]string, error) {
 			imgURL, _ = s.Attr("data-src")
 		}
 
-		imgURL = themes.CleanImageURL(imgURL, parsedURL.Host)
+		imgURL = core.CleanImageURL(imgURL, parsedURL.Host)
 		if imgURL != "" && !seen[imgURL] {
 			seen[imgURL] = true
 			images = append(images, imgURL)
@@ -84,5 +83,5 @@ func (w *WeebCentral) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewWeebCentral())
+	core.Register(NewWeebCentral())
 }

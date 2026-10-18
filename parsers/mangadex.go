@@ -109,5 +109,5 @@ func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewMangaDex())
+	core.Register(NewMangaDex())
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 var mangaraw4uImageRegex = regexp.MustCompile(`https?://[^"'\s<>]+\.(?:jpg|jpeg|png|webp)`)
@@ -41,7 +40,7 @@ func (m *MangaRaw4U) GetImages(chapterURL string) ([]string, error) {
 		"Referer": fmt.Sprintf("https://%s/", parsedURL.Host),
 	}
 
-	doc, rawHTML, err := themes.FetchHTML(chapterURL, headers)
+	doc, rawHTML, err := core.FetchHTML(chapterURL, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +70,7 @@ func (m *MangaRaw4U) GetImages(chapterURL string) ([]string, error) {
 				}
 			}
 
-			val = themes.CleanImageURL(val, parsedURL.Host)
+			val = core.CleanImageURL(val, parsedURL.Host)
 			if val != "" && !seen[val] {
 				lower := strings.ToLower(val)
 				if !strings.Contains(lower, "avatar") && !strings.Contains(lower, "logo") && !strings.Contains(lower, "icon") && !strings.Contains(lower, "banner") {
@@ -104,5 +103,5 @@ func (m *MangaRaw4U) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewMangaRaw4U())
+	core.Register(NewMangaRaw4U())
 }

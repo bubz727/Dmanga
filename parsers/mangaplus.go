@@ -120,5 +120,5 @@ func generateUUID() string {
 }
 
 func init() {
-	Register(NewMangaPlus())
+	core.Register(NewMangaPlus())
 }

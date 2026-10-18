@@ -8,7 +8,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 var toonzFilenameRegex = regexp.MustCompile(`"filename"\s*:\s*"([^"]+)"`)
@@ -43,7 +42,7 @@ func (t *Toonz) GetImages(chapterURL string) ([]string, error) {
 		"Cookie":  "reader_prefs=%7B%22rating%22%3A%22pornographic%22%7D",
 	}
 
-	doc, rawHTML, err := themes.FetchHTML(chapterURL, headers)
+	doc, rawHTML, err := core.FetchHTML(chapterURL, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +81,7 @@ func (t *Toonz) GetImages(chapterURL string) ([]string, error) {
 			"Cookie":  "reader_prefs=%7B%22rating%22%3A%22pornographic%22%7D",
 			"rsc":     "1",
 		}
-		_, rscBody, rscErr := themes.FetchHTML(chapterURL, rscHeaders)
+		_, rscBody, rscErr := core.FetchHTML(chapterURL, rscHeaders)
 		if rscErr == nil {
 			rscMatches := toonzFilenameRegex.FindAllStringSubmatch(rscBody, -1)
 			for _, m := range rscMatches {
@@ -123,7 +122,7 @@ func (t *Toonz) GetImages(chapterURL string) ([]string, error) {
 			}
 		}
 
-		imgURL = themes.CleanImageURL(imgURL, baseHost)
+		imgURL = core.CleanImageURL(imgURL, baseHost)
 		if imgURL != "" && !seen[imgURL] {
 			lower := strings.ToLower(imgURL)
 			if !strings.Contains(lower, "avatar") && !strings.Contains(lower, "logo") && !strings.Contains(lower, "cover") {
@@ -137,5 +136,5 @@ func (t *Toonz) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewToonz())
+	core.Register(NewToonz())
 }

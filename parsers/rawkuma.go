@@ -1,6 +1,7 @@
 package parsers
 
 import (
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
@@ -29,5 +30,5 @@ func (r *Rawkuma) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewRawkuma())
+	core.Register(NewRawkuma())
 }

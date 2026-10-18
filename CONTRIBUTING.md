@@ -6,21 +6,27 @@ Thank you for your interest in contributing to **CLI Manga Downloader**! This do
 
 ## Architecture Overview
 
-The project uses a modular design separating base themes from site-specific parsers:
+The project uses a clean modular design where `core/` houses the primary framework engine, `themes/` provides reusable CMS templates, and `parsers/` contains site-specific extractors:
 
 ```text
-├── themes/               # Reusable CMS base templates & descrambling engine
-│   ├── base.go           # Core Parser interface & HTTP helpers
-│   ├── descramble.go     # Tile descrambler & image format normalization
-│   ├── madara.go         # WordPress Madara CMS base template
+├── core/                 # Core framework engine, registry, networking, & image pipeline
+│   ├── base.go           # Core Parser & ImageProcessor interfaces, FetchHTML, GetFileExtension
+│   ├── registry.go       # Central parser registry: Register, FindParser, GetAllParsers
+│   ├── descramble.go     # Image tile descrambler & JPEG/PNG format normalizer
+│   ├── downloader.go     # Concurrent worker pool and file writing pipeline
+│   ├── diagnostic.go     # Anti-bot and parser verification suite
+│   ├── cli.go            # CLI arguments, help formatting, and parser listing
+│   ├── cloudflare.go     # Cloudflare Turnstile hybrid browser solver
+│   └── errors.go         # Standard project error types
+├── themes/               # Reusable CMS base templates
 │   ├── mangathemesia.go  # WordPress MangaThemesia CMS base template
 │   └── natsu.go          # Natsu reader base template
 ├── parsers/              # Individual site parsers (one file per platform/site)
 │   ├── asurascan.go      # Custom Next.js / Astro props parser
 │   ├── mangafire.go      # Custom XOR VRF API signer parser
-│   ├── registry.go       # Central parser registry (DO NOT EDIT)
+│   ├── comici.go         # Comici platforms parser (descrambler enabled)
 │   └── ...               # Additional site parsers
-├── main.go               # CLI entry point, worker pool runner, and CLI flags
+├── main.go               # Minimal CLI entry point and argument router
 └── main_test.go          # Test suites and diagnostic runner
 ```
 
@@ -30,18 +36,19 @@ The project uses a modular design separating base themes from site-specific pars
 
 To add support for a new manga website, create a single new file in the `parsers/` directory (e.g., `parsers/kiryuu.go`).
 
-IMPORTANT: Never modify `parsers/registry.go`. Parsers must register themselves automatically using Go's `init()` function.
+IMPORTANT: Parsers must register themselves automatically into the core registry using Go's `init()` function with `core.Register(...)`.
 
 ---
 
 ### Scenario 1: Websites Using Standard CMS Themes
 
-If the website uses a recognized CMS theme (such as MangaThemesia, Madara, or Natsu), simply embed the corresponding base theme struct:
+If the website uses a recognized CMS theme (such as MangaThemesia or Natsu), simply embed the corresponding base theme struct:
 
 ```go
 package parsers
 
 import (
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
@@ -72,7 +79,7 @@ func (k *Kiryuu) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewKiryuu())
+	core.Register(NewKiryuu())
 }
 ```
 
@@ -80,7 +87,7 @@ func init() {
 
 ### Scenario 2: Websites with Custom Architecture or APIs
 
-If the website uses a custom frontend (e.g., Next.js streaming, custom APIs, GraphQL, or custom HTML layouts), implement the `themes.Parser` interface directly:
+If the website uses a custom frontend (e.g., Next.js streaming, custom APIs, GraphQL, or custom HTML layouts), implement the `core.Parser` interface directly:
 
 ```go
 package parsers
@@ -91,7 +98,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"manga-downloader/themes"
+	"manga-downloader/core"
 )
 
 type ExampleCustom struct{}
@@ -114,7 +121,7 @@ func (e *ExampleCustom) GetImages(chapterURL string) ([]string, error) {
 		return nil, err
 	}
 
-	doc, _, err := themes.FetchHTML(chapterURL, map[string]string{
+	doc, _, err := core.FetchHTML(chapterURL, map[string]string{
 		"Referer": fmt.Sprintf("https://%s/", parsedURL.Host),
 	})
 	if err != nil {
@@ -130,7 +137,7 @@ func (e *ExampleCustom) GetImages(chapterURL string) ([]string, error) {
 			imgURL, _ = s.Attr("data-src")
 		}
 
-		imgURL = themes.CleanImageURL(imgURL, parsedURL.Host)
+		imgURL = core.CleanImageURL(imgURL, parsedURL.Host)
 		if imgURL != "" && !seen[imgURL] {
 			seen[imgURL] = true
 			images = append(images, imgURL)
@@ -145,68 +152,42 @@ func (e *ExampleCustom) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewExampleCustom())
+	core.Register(NewExampleCustom())
 }
 ```
 
 ---
 
-### Scenario 3: Websites with Scrambled Canvas Tiles
+### Scenario 3: Websites with Scrambled/Puzzle Images
 
-If the target website delivers scrambled/tiled images (such as GigaViewer or Comici), implement the optional `themes.ImageProcessor` interface:
+If the website uses an image scrambling technique (like Comici or GigaViewer), implement `core.ImageProcessor`:
 
 ```go
-func (p *CustomParser) ProcessImage(rawBytes []byte, imageURL string) ([]byte, error) {
-	return themes.ProcessImageDescramble(rawBytes, imageURL)
+func (p *MyParser) ProcessImage(rawBytes []byte, imageURL string) ([]byte, error) {
+    return core.ProcessImageDescramble(rawBytes, imageURL)
 }
 ```
 
-The downloader will automatically route the downloaded byte stream through your `ProcessImage` hook before saving files to disk.
-
 ---
 
-## Testing Guidelines
+## Testing Your Parser
 
-Every new parser must be tested before submitting a pull request.
+Before submitting your changes, run automated tests:
 
-### 1. Diagnostic Test Mode
-Run the diagnostic test against a live chapter URL to verify domain matching, HTTP connectivity, and image extraction without downloading images:
-
+### 1. Compile Check
+Verify that your changes compile without warnings:
 ```powershell
-go run . -t "https://example.com/chapter-1"
+go build -ldflags="-s -w" -o Dmanga.exe .
 ```
 
-Expected output:
-```text
-[OK 1/4] Domain Match      : Example Custom
-[OK 2/4] HTTP Connection   : 200 OK (Unblocked)
-[OK 3/4] Image Extraction  : Found X images
-[OK 4/4] Image Sample      : https://.../001.jpg
-[SUCCESS] Parser 'Example Custom' is fully functional!
-```
-
-### 2. Run Test Suite
-Run the test suite to ensure all unit tests pass:
-
+### 2. Diagnostic Mode
+Test your parser live against a real chapter URL:
 ```powershell
-go test -v .
+.\Dmanga.exe -t https://example.com/manga/chapter-1
 ```
 
-Verify specific URLs via test arguments:
-
+### 3. Automated Test Suite
+Run the project unit test suite:
 ```powershell
-go test -v . -args "https://example.com/chapter-1"
+go test ./...
 ```
-
----
-
-## Submission Checklist
-
-Before submitting a Pull Request, verify the following:
-
-- The new parser is located inside `parsers/` with a clear, lowercase filename (e.g., `parsers/sitename.go`).
-- The parser registers itself via `func init() { Register(NewParser()) }`.
-- `parsers/registry.go` has not been modified.
-- Live diagnostic test (`go run . -t <url>`) executes successfully.
-- All unit tests pass with `go test ./...`.
-- No binary files (`*.exe`), temporary files, or downloaded image files are committed.

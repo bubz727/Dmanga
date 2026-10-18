@@ -45,7 +45,7 @@ func (m *MangaThemesia) ExtractImages(chapterURL string) ([]string, error) {
 	}
 	baseHost := parsedURL.Host
 
-	doc, rawHTML, err := FetchHTML(chapterURL, m.CustomHeaders)
+	doc, rawHTML, err := core.FetchHTML(chapterURL, m.CustomHeaders)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (m *MangaThemesia) ExtractImages(chapterURL string) ([]string, error) {
 		if err := json.Unmarshal([]byte(matches[1]), &jsonImages); err == nil && len(jsonImages) > 0 {
 			var cleaned []string
 			for _, img := range jsonImages {
-				if finalURL := CleanImageURL(img, baseHost); finalURL != "" {
+				if finalURL := core.CleanImageURL(img, baseHost); finalURL != "" {
 					cleaned = append(cleaned, finalURL)
 				}
 			}
@@ -92,7 +92,7 @@ func (m *MangaThemesia) ExtractImages(chapterURL string) ([]string, error) {
 			}
 		}
 
-		imgURL = CleanImageURL(imgURL, baseHost)
+		imgURL = core.CleanImageURL(imgURL, baseHost)
 
 		// Filter out empty images, avatars, or logos
 		if imgURL != "" && !seen[imgURL] {

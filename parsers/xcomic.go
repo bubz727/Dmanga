@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"manga-downloader/core"
-	"manga-downloader/themes"
 )
 
 type XComic struct{}
@@ -124,7 +123,7 @@ func (x *XComic) GetImages(chapterURL string) ([]string, error) {
 
 	var images []string
 	for _, raw := range rawUrls {
-		clean := themes.CleanImageURL(raw, baseHost)
+		clean := core.CleanImageURL(raw, baseHost)
 		if clean != "" {
 			images = append(images, clean)
 		}
@@ -134,5 +133,5 @@ func (x *XComic) GetImages(chapterURL string) ([]string, error) {
 }
 
 func init() {
-	Register(NewXComic())
+	core.Register(NewXComic())
 }

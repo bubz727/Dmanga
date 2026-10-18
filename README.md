@@ -68,12 +68,12 @@ The downloader supports over 60 manga websites across various reader architectur
 Compile an optimized, standalone executable:
 
 ```powershell
-go build -ldflags="-s -w" -o downloadManga.exe .
+go build -ldflags="-s -w" -o Dmanga.exe .
 ```
 
 ### 3. Add to System PATH (Optional)
 To run the downloader from any folder in Command Prompt or PowerShell:
-1. Place `downloadManga.exe` into a permanent directory (e.g., `C:\Tools\`).
+1. Place `Dmanga.exe` into a permanent directory (e.g., `C:\Tools\`).
 2. Add `C:\Tools` to your Windows `PATH` environment variables.
 
 ---
@@ -84,7 +84,7 @@ To run the downloader from any folder in Command Prompt or PowerShell:
 Navigate to your desired target folder and run:
 
 ```cmd
-downloadManga https://mangafire.to/title/ro8ro-all-class-awakening-god-slayer/chapter/9479428
+Dmanga https://mangafire.to/title/ro8ro-all-class-awakening-god-slayer/chapter/9479428
 ```
 
 Images will be saved directly into the current working directory as `001.jpg`, `002.jpg`, etc.
@@ -93,22 +93,22 @@ Images will be saved directly into the current working directory as `001.jpg`, `
 You can download multiple chapters simultaneously by separating URLs with spaces or pipe (`|`) characters:
 
 ```cmd
-downloadManga https://example.com/chapter-1 https://example.com/chapter-2
+Dmanga https://example.com/chapter-1 https://example.com/chapter-2
 ```
 
 Or using the pipe delimiter:
 
 ```cmd
-downloadManga "https://example.com/chapter-1 | https://example.com/chapter-2"
+Dmanga "https://example.com/chapter-1 | https://example.com/chapter-2"
 ```
 
 In multi-link mode, each chapter is saved in its own subfolder (`Chapter 1`, `Chapter 2`, etc.).
 
 ### Interactive Prompt Mode
-Run `downloadManga` without arguments:
+Run `Dmanga` without arguments:
 
 ```cmd
-downloadManga
+Dmanga
 ```
 The program will prompt you to enter one or multiple chapter URLs.
 
@@ -116,14 +116,14 @@ The program will prompt you to enter one or multiple chapter URLs.
 Inspect domain routing, HTTP status, anti-bot protection, and image extraction count without downloading any files:
 
 ```cmd
-downloadManga -t https://comic-days.com/episode/3270296674374344033
+Dmanga -t https://comic-days.com/episode/3270296674374344033
 ```
 
 ### List Supported Parsers (-l, --list, list)
 Display all registered manga parsers along with their supported domains:
 
 ```cmd
-downloadManga -l
+Dmanga -l
 ```
 
 ---

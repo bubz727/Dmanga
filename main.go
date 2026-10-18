@@ -388,10 +388,10 @@ func showSupportedParsers() {
 	fmt.Printf("Total: %d Parsers, %d Supported Domains\n", len(all), totalDomains)
 	fmt.Println("==================================================")
 	fmt.Println("Usage Commands:")
-	fmt.Println("  downloadManga <chapter-url>                  Download chapter")
-	fmt.Println("  downloadManga <url-1> <url-2>                Multi-chapter download")
-	fmt.Println("  downloadManga -t <chapter-url>               Run parser diagnostics")
-	fmt.Println("  downloadManga -l                             List all supported parsers")
+	fmt.Println("  Dmanga <chapter-url>                  Download chapter")
+	fmt.Println("  Dmanga <url-1> <url-2>                Multi-chapter download")
+	fmt.Println("  Dmanga -t <chapter-url>               Run parser diagnostics")
+	fmt.Println("  Dmanga -l                             List all supported parsers")
 	fmt.Println("==================================================")
 }
 
@@ -405,10 +405,10 @@ func showHelp() {
 	fmt.Println("  -h, --help, help        Show this help message")
 	fmt.Println()
 	fmt.Println("Download Usage:")
-	fmt.Println("  downloadManga <url>              Single chapter download")
-	fmt.Println("  downloadManga <url1> <url2> ...  Multi-link download (folders: Chapter 1, Chapter 2, ...)")
-	fmt.Println("  downloadManga \"<url1> | <url2>\"  Pipe-separated multi-link download")
-	fmt.Println("  downloadManga                    Interactive prompt mode")
+	fmt.Println("  Dmanga <url>              Single chapter download")
+	fmt.Println("  Dmanga <url1> <url2> ...  Multi-link download (folders: Chapter 1, Chapter 2, ...)")
+	fmt.Println("  Dmanga \"<url1> | <url2>\"  Pipe-separated multi-link download")
+	fmt.Println("  Dmanga                    Interactive prompt mode")
 	fmt.Println("==================================================")
 }
 

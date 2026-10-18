@@ -31,6 +31,8 @@ The downloader supports over 60 manga websites across various reader architectur
 - Naver Webtoon (`comic.naver.com`, `m.comic.naver.com`)
 - MangaBall (`mangaball.com`)
 - MangaRaw4U (`mangaraw4u.com`)
+- Nihonkuni (`nihonkuni.com`)
+- Weloma (`weloma.net`, `weloma.art`)
 - XComic (`xcomic.me`)
 - GigaViewer Platforms (25 domains, including `comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `kuragebunch.com`, `sunday-webry.com`)
 - Comici Platforms (25 domains, including `younganimal.com`, `championcross.jp`, `bigcomics.jp`, `hanayume.com`)

@@ -30,6 +30,7 @@ The downloader supports over 60 manga websites across various reader architectur
 - MANGA Plus by SHUEISHA (`mangaplus.shueisha.co.jp`)
 - Naver Webtoon (`comic.naver.com`, `m.comic.naver.com`)
 - MangaBall (`mangaball.com`)
+- MangaRaw4U (`mangaraw4u.com`)
 - XComic (`xcomic.me`)
 - GigaViewer Platforms (25 domains, including `comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `kuragebunch.com`, `sunday-webry.com`)
 - Comici Platforms (25 domains, including `younganimal.com`, `championcross.jp`, `bigcomics.jp`, `hanayume.com`)

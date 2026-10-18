@@ -35,6 +35,7 @@ The downloader supports over 60 manga websites across various reader architectur
 - MangaBall (`mangaball.com`)
 - MangaRaw4U (`mangaraw4u.com`)
 - Nihonkuni (`nihonkuni.com`)
+- NicoManga (`nicomanga.com`, `nicomanga.net`)
 - Weloma (`weloma.net`, `weloma.art`)
 - XComic (`xcomic.me`)
 - GigaViewer Platforms (25 domains, including `comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `kuragebunch.com`, `sunday-webry.com`)

@@ -21,3 +21,7 @@ downloadManga.exe
 Thumbs.db
 [Dd]esktop.ini
 .DS_Store
+
+# Temporary transfer files
+transfer-kt/
+*.kt

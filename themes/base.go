@@ -19,6 +19,11 @@ type Parser interface {
 	GetImages(chapterURL string) ([]string, error)
 }
 
+// ImageProcessor mengizinkan parser untuk memproses atau mendescramble bytes gambar sebelum disimpan ke file
+type ImageProcessor interface {
+	ProcessImage(rawBytes []byte, imageURL string) ([]byte, error)
+}
+
 // FetchHTML mendownload halaman dan mengembalikan goquery Document serta string HTML mentahnya
 func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Document, string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}

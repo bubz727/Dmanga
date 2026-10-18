@@ -92,7 +92,7 @@ func main() {
 
 	fmt.Printf("[+] Ditemukan %d gambar. Memulai proses download...\n\n", total)
 
-	downloadAll(imageURLs, targetDir, parsedURL.Host)
+	downloadAll(imageURLs, targetDir, parsedURL.Host, parser)
 
 	fmt.Println("\n[✓] Selesai! Semua gambar berhasil disimpan.")
 }
@@ -158,12 +158,16 @@ func runDiagnosticTest(rawURL string) {
 	fmt.Printf("[✓ 3/4] Ekstraksi Gambar  : Ditemukan %d gambar (waktu: %v)\n", len(images), dur)
 
 	// 4. Validasi URL Gambar
-	fmt.Printf("[✓ 4/4] Sampel Gambar     : %s\n", images[0])
+	sampleURL := images[0]
+	if idx := strings.Index(sampleURL, "#"); idx != -1 {
+		sampleURL = sampleURL[:idx]
+	}
+	fmt.Printf("[✓ 4/4] Sampel Gambar     : %s\n", sampleURL)
 	fmt.Println("==================================================")
 	fmt.Printf("[SUKSES] Parser '%s' BERFUNGSI SEMPURNA!\n", p.Name())
 }
 
-func downloadAll(imageURLs []string, targetDir, host string) {
+func downloadAll(imageURLs []string, targetDir, host string, parser themes.Parser) {
 	concurrency := 5
 	guard := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
@@ -183,7 +187,7 @@ func downloadAll(imageURLs []string, targetDir, host string) {
 			fileName := fmt.Sprintf("%03d%s", index+1, ext)
 			filePath := filepath.Join(targetDir, fileName)
 
-			err := downloadFile(client, imgURL, filePath, host)
+			err := downloadFile(client, imgURL, filePath, host, parser)
 			if err != nil {
 				fmt.Printf("[%02d/%02d] [GAGAL] %s: %v\n", index+1, total, fileName, err)
 			} else {
@@ -195,8 +199,13 @@ func downloadAll(imageURLs []string, targetDir, host string) {
 	wg.Wait()
 }
 
-func downloadFile(client *http.Client, fileURL, destPath, host string) error {
-	req, err := http.NewRequest("GET", fileURL, nil)
+func downloadFile(client *http.Client, fileURL, destPath, host string, parser themes.Parser) error {
+	fetchURL := fileURL
+	if idx := strings.Index(fetchURL, "#"); idx != -1 {
+		fetchURL = fetchURL[:idx]
+	}
+
+	req, err := http.NewRequest("GET", fetchURL, nil)
 	if err != nil {
 		return err
 	}
@@ -214,12 +223,25 @@ func downloadFile(client *http.Client, fileURL, destPath, host string) error {
 		return fmt.Errorf("status code %d", resp.StatusCode)
 	}
 
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	// Jika parser memiliki logic ImageProcessor (seperti descrambler), jalankan prosesnya
+	if processor, ok := parser.(themes.ImageProcessor); ok {
+		processed, err := processor.ProcessImage(bodyBytes, fileURL)
+		if err == nil {
+			bodyBytes = processed
+		}
+	}
+
 	out, err := os.Create(destPath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, resp.Body)
+	_, err = out.Write(bodyBytes)
 	return err
 }

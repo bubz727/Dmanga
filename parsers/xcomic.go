@@ -27,9 +27,6 @@ func (x *XComic) Name() string {
 func (x *XComic) Domains() []string {
 	return []string{
 		"xcomic.me",
-		"xcomic.net",
-		"comik.to",
-		"yona.to",
 	}
 }
 

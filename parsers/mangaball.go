@@ -26,7 +26,6 @@ func (m *MangaBall) Name() string {
 func (m *MangaBall) Domains() []string {
 	return []string{
 		"mangaball.com",
-		"mangaball.net",
 	}
 }
 

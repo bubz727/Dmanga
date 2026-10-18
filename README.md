@@ -38,6 +38,7 @@ The downloader supports over 60 manga websites across various reader architectur
 - NicoManga (`nicomanga.com`, `nicomanga.net`)
 - Weloma (`weloma.net`, `weloma.art`)
 - XComic (`xcomic.me`)
+- Comic-Walker (`comic-walker.com`)
 - GigaViewer Platforms (25 domains, including `comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `kuragebunch.com`, `sunday-webry.com`)
 - Comici Platforms (25 domains, including `younganimal.com`, `championcross.jp`, `bigcomics.jp`, `hanayume.com`)
 

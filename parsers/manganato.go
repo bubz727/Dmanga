@@ -24,14 +24,6 @@ func (m *Manganato) Domains() []string {
 	return []string{
 		"manganato.gg",
 		"www.manganato.gg",
-		"manganato.com",
-		"www.manganato.com",
-		"chapmanganato.to",
-		"chapmanganato.com",
-		"natomanga.com",
-		"www.natomanga.com",
-		"readmanganato.com",
-		"www.readmanganato.com",
 	}
 }
 

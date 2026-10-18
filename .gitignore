@@ -1,0 +1,23 @@
+# Binaries & Executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+downloadManga.exe
+
+# Downloaded Manga Images & Archives
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
+*.cbz
+*.zip
+
+# IDE & OS Files
+.vscode/
+.idea/
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store

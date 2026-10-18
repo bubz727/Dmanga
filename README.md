@@ -27,6 +27,7 @@ The downloader supports over 60 manga websites across various reader architectur
 - WeebCentral (`weebcentral.com`)
 - Rawkuma (`rawkuma.net`)
 - MangaDex (`mangadex.org`)
+- Manganato (`manganato.gg`, `manganato.com`, `chapmanganato.to`, `natomanga.com`, `readmanganato.com`)
 - MANGA Plus by SHUEISHA (`mangaplus.shueisha.co.jp`)
 - Naver Webtoon (`comic.naver.com`, `m.comic.naver.com`)
 - MangaBall (`mangaball.com`)

@@ -2,6 +2,8 @@
 
 A lightweight, high-performance command-line manga and comic downloader written in Go.
 
+This project is primarily focused on **Japanese RAW manga** and major digital platforms featuring expansive catalogs and high-resolution image quality (including official publisher platforms, GigaViewer, Comici, and dedicated raw archives).
+
 ---
 
 ## Features

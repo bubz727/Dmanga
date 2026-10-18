@@ -29,3 +29,8 @@ func (a *ApKomik) Domains() []string {
 func (a *ApKomik) GetImages(chapterURL string) ([]string, error) {
 	return a.ExtractImages(chapterURL)
 }
+
+// Otomatis mendaftarkan ApKomik ke sistem saat aplikasi dijalankan
+func init() {
+	Register(NewApKomik())
+}

@@ -4,7 +4,6 @@ import (
 	"manga-downloader/themes"
 )
 
-// Rawkuma parser berbasis tema Natsu (diporting dari Kotatsu natsu.kt)
 type Rawkuma struct {
 	themes.Natsu
 }

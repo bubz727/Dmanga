@@ -14,14 +14,14 @@ import (
 	"manga-downloader/themes"
 )
 
-var flagURL = flag.String("url", "", "URL chapter untuk dites")
+var flagURL = flag.String("url", "", "Chapter URL to test")
 
-// getTargetURL mengambil URL dari flag -url ATAU dari argumen bebas setelah -args
+// getTargetURL retrieves the URL from the -url flag or positional argument after -args
 func getTargetURL() string {
 	if *flagURL != "" {
 		return *flagURL
 	}
-	// Periksa apakah ada URL di argumen os.Args (misal: go test . -args https://...)
+	// Check if there is a URL in os.Args (e.g. go test . -args https://...)
 	for _, arg := range os.Args {
 		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
 			return arg
@@ -33,26 +33,26 @@ func getTargetURL() string {
 func TestMangaParser(t *testing.T) {
 	targetURL := strings.TrimSpace(getTargetURL())
 	if targetURL == "" {
-		t.Skip("Lewati: Masukkan URL chapter untuk dites. Contoh: go test . -args https://01.apkomik.com/chapter-1/")
+		t.Skip("Skip: Provide a chapter URL to test. Example: go test . -args https://01.apkomik.com/chapter-1/")
 	}
 
 	t.Logf("==================================================")
-	t.Logf("DIAGNOSA PARSER UNTUK: %s", targetURL)
+	t.Logf("PARSER DIAGNOSTIC FOR: %s", targetURL)
 	t.Logf("==================================================")
 
 	parsed, err := url.Parse(targetURL)
 	if err != nil || parsed.Host == "" {
-		t.Fatalf("[GAGAL] Format URL tidak valid: %v", err)
+		t.Fatalf("[FAILED] Invalid URL format: %v", err)
 	}
 
-	// 1. Cek Router / Registry
+	// 1. Check Router / Registry
 	p, err := parsers.FindParser(parsed.Host)
 	if err != nil {
-		t.Fatalf("[GAGAL DOMAIN] Domain '%s' belum terdaftar di registry!", parsed.Host)
+		t.Fatalf("[FAILED DOMAIN] Domain '%s' is not registered in parser registry!", parsed.Host)
 	}
-	t.Logf("[✓ 1/4] Domain Match     : Dikenali sebagai '%s'", p.Name())
+	t.Logf("[OK 1/4] Domain Match     : Recognized as '%s'", p.Name())
 
-	// 2. Cek Koneksi & Blokir Anti-Bot / Cloudflare
+	// 2. Check Connection & Anti-Bot / Cloudflare Protection
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, _ := http.NewRequest("GET", targetURL, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -60,37 +60,37 @@ func TestMangaParser(t *testing.T) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		t.Fatalf("[GAGAL KONEKSI] Tidak bisa menghubungi server: %v", err)
+		t.Fatalf("[CONNECTION FAILED] Unable to reach server: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusForbidden {
-		t.Fatalf("[DIBLOKIR - HTTP 403] Akses ditolak! Server memblokir request (Cloudflare/WAF).")
+		t.Fatalf("[BLOCKED - HTTP 403] Access denied! Server blocked request (Cloudflare/WAF).")
 	} else if resp.StatusCode == http.StatusServiceUnavailable {
-		t.Fatalf("[DIBLOKIR - HTTP 503] Server 503 (Cloudflare Turnstile/Under Attack).")
+		t.Fatalf("[BLOCKED - HTTP 503] Server 503 (Cloudflare Turnstile/Under Attack).")
 	} else if resp.StatusCode != http.StatusOK {
-		t.Fatalf("[GAGAL HTTP] Server merespon dengan status code %d %s", resp.StatusCode, resp.Status)
+		t.Fatalf("[HTTP FAILED] Server responded with status code %d %s", resp.StatusCode, resp.Status)
 	}
-	t.Logf("[✓ 2/4] Koneksi HTTP      : 200 OK (Tidak terblokir)")
+	t.Logf("[OK 2/4] HTTP Connection  : 200 OK (Clean access, unblocked)")
 
-	// 3. Ekstraksi Gambar
+	// 3. Image Extraction
 	start := time.Now()
 	images, err := p.GetImages(targetURL)
 	duration := time.Since(start)
 
 	if err != nil {
-		t.Fatalf("[GAGAL EKSTRAKSI] %v", err)
+		t.Fatalf("[EXTRACTION FAILED] %v", err)
 	}
 	if len(images) == 0 {
-		t.Fatalf("[GAGAL GAMBAR KOSONG] Tidak ada gambar yang ditemukan. Selector/script kemungkinan berubah.")
+		t.Fatalf("[EMPTY IMAGES FAILED] No images found. Selector/script structure may have changed.")
 	}
-	t.Logf("[✓ 3/4] Ekstraksi Gambar : Ditemukan %d gambar (waktu: %v)", len(images), duration)
+	t.Logf("[OK 3/4] Image Extraction : Found %d images (time: %v)", len(images), duration)
 
-	// 4. Validasi URL
+	// 4. Sample Image URL Validation
 	sample := images[0]
-	t.Logf("[✓ 4/4] Sampel Gambar    : %s", sample)
+	t.Logf("[OK 4/4] Sample Image URL : %s", sample)
 	t.Logf("==================================================")
-	t.Logf("[SUKSES] Parser '%s' BERFUNGSI 100%%!", p.Name())
+	t.Logf("[SUCCESS] Parser '%s' IS 100%% FUNCTIONAL!", p.Name())
 }
 
 func TestImageFormatConversion(t *testing.T) {

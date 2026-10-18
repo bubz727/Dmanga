@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"manga-downloader/core"
 )
 
 type MangaDex struct{}
@@ -42,7 +44,7 @@ func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
 		return nil, err
 	}
 
-	// Format URL: https://mangadex.org/chapter/{chapterId} atau /chapter/{chapterId}/1
+	// URL format: https://mangadex.org/chapter/{chapterId} or /chapter/{chapterId}/1
 	cleanPath := strings.Trim(parsedURL.Path, "/")
 	parts := strings.Split(cleanPath, "/")
 
@@ -59,7 +61,7 @@ func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if chapterID == "" {
-		return nil, fmt.Errorf("tidak dapat menemukan chapter ID dari URL MangaDex: %s", chapterURL)
+		return nil, core.ChapterIDNotFoundError(chapterURL)
 	}
 
 	apiURL := fmt.Sprintf("https://api.mangadex.org/at-home/server/%s?forcePort443=false", chapterID)
@@ -80,7 +82,7 @@ func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("MangaDex API error: HTTP %d", resp.StatusCode)
+		return nil, core.HTTPStatusError(resp.StatusCode, resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -90,11 +92,11 @@ func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
 
 	var res mangaDexAtHomeResponse
 	if err := json.Unmarshal(bodyBytes, &res); err != nil {
-		return nil, fmt.Errorf("gagal parse JSON MangaDex: %v", err)
+		return nil, core.JSONParseError("MangaDex", err)
 	}
 
 	if res.Result != "ok" || len(res.Chapter.Data) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk chapter MangaDex ini")
+		return nil, core.ErrNoImagesFound
 	}
 
 	var images []string
@@ -103,7 +105,7 @@ func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
 		images = append(images, prefix+filename)
 	}
 
-	return images, nil
+	return core.EnsureImages(images)
 }
 
 func init() {

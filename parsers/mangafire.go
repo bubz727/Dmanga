@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
-// Porting langsung dari VrfSigner di Kotatsu mangafire.kt
 const (
 	mfTable1B64 = "yINlmUNho8VYJT+ibTIP+9ESiULpVEtMOoD6U6lRE0R/xwXo/Xp9NrUgC4cw/Lmo33vUyjUE40kUoEWIr/fxfNNcq2s79ShQ5NhNrFnJ4hXPwOu/SuXzIbuTQKGFvfm08E9jvCfqAtoDqvQq3dVWPQFmJjgvkISBeXY3BgANR+yVnjGbcxZ47d6kLNfZPIayTq3/YGySb1KuVZodWp/WGNAO5pfMcpaK53Hhs0allBszaMaxuouOwdxbwgxIw6YunSsXjI05Yi0j9j4eHKfSXR8Ifo/Od+8iamRfCXTyvm7NGRGYdcQ0ywcK/u6RXhrbcCm4t2eCtrDgQVecJGkQ+A=="
 	mfKey1B64   = "0Ec58JOY3uBzJK9m3zqIOpdlF7UFiax9DmA="
@@ -92,30 +92,30 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 	}
 	baseHost := parsedURL.Host
 
-	// Ambil chapter ID dari URL atau dari HTML halaman reader
+	// Extract chapter ID from URL or reader page HTML
 	chapterID := ""
 	cleanPath := strings.Trim(parsedURL.Path, "/")
 	parts := strings.Split(cleanPath, "/")
 
-	// Cek apakah URL langsung berupa /title/.../12345
+	// Check if URL directly contains /title/.../12345
 	if len(parts) >= 3 && parts[0] == "title" {
 		chapterID = parts[len(parts)-1]
 	}
 
-	// Jika URL berupa /read/... kita fetch halamannya untuk cari data-id
+	// If URL is /read/..., fetch the page to look for data-id
 	if chapterID == "" || strings.HasPrefix(cleanPath, "read/") {
 		doc, rawHTML, err := themes.FetchHTML(chapterURL, map[string]string{
 			"Referer": fmt.Sprintf("https://%s/", baseHost),
 		})
 		if err == nil {
-			// Cari di data-id reader
+			// Find in reader data-id
 			doc.Find("#reader, [data-id], .read-container").Each(func(i int, s *goquery.Selection) {
 				if id, exists := s.Attr("data-id"); exists && id != "" && chapterID == "" {
 					chapterID = id
 				}
 			})
 
-			// Cari di script data
+			// Find in script data
 			if chapterID == "" {
 				if match := chapterIDRegex.FindStringSubmatch(rawHTML); len(match) > 1 {
 					chapterID = match[1]
@@ -125,11 +125,11 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if chapterID == "" {
-		// Fallback: gunakan bagian terakhir URL
+		// Fallback: use last segment of URL
 		chapterID = parts[len(parts)-1]
 	}
 
-	// Bangun query ke /api/chapters/{chapterId} dengan tanda tangan VRF
+	// Build query to /api/chapters/{chapterId} with VRF signature
 	apiPath := fmt.Sprintf("/chapters/%s", chapterID)
 	vrf := signVrf(apiPath)
 
@@ -151,7 +151,7 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: HTTP %d", resp.StatusCode)
+		return nil, core.HTTPStatusError(resp.StatusCode, resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -169,7 +169,7 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 
 	var res MangaFireResponse
 	if err := json.Unmarshal(bodyBytes, &res); err != nil {
-		return nil, fmt.Errorf("gagal parse JSON MangaFire: %v", err)
+		return nil, core.JSONParseError("MangaFire", err)
 	}
 
 	var images []string
@@ -180,11 +180,7 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	if len(images) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk MangaFire")
-	}
-
-	return images, nil
+	return core.EnsureImages(images)
 }
 
 func init() {

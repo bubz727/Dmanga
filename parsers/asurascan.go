@@ -9,11 +9,12 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
 var (
-	// Regex astro props dari Kotatsu: "url": [0, "https://..."]
+	// Regex astro props : "url": [0, "https://..."]
 	asuraAstroRegex = regexp.MustCompile(`"url":\s*\[0,\s*"([^"]+)"\]`)
 
 	// Regex Next.js streaming chunks: self.__next_f.push([1,"..."])
@@ -50,7 +51,7 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 		return nil, err
 	}
 
-	// 1. CARA 1: Astro Island Component Props (Kotatsu logic)
+	// 1. APPROACH 1: Astro Island Component Props
 	var astroUrls []string
 	seen := make(map[string]bool)
 
@@ -75,7 +76,7 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 		return astroUrls, nil
 	}
 
-	// 2. CARA 2: Next.js Streaming Chunks (Kotatsu logic)
+	// 2. APPROACH 2: Next.js Streaming Chunks
 	nextMatches := asuraNextChunkRegex.FindAllStringSubmatch(rawHTML, -1)
 	if len(nextMatches) > 0 {
 		var combinedSB strings.Builder
@@ -140,7 +141,7 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	// 3. CARA 3: Fallback ke DOM <img> langsung
+	// 3. APPROACH 3: Fallback directly to DOM <img>
 	var fallbackImages []string
 	doc.Find("div.w-full.mx-auto.center img, div#readerarea img, div.reading-content img, article img").Each(func(i int, s *goquery.Selection) {
 		imgURL := ""
@@ -161,11 +162,7 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 		}
 	})
 
-	if len(fallbackImages) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk Asura Scans")
-	}
-
-	return fallbackImages, nil
+	return core.EnsureImages(fallbackImages)
 }
 
 func init() {

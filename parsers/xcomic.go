@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
@@ -63,7 +64,7 @@ func (x *XComic) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if chapterID == "" {
-		return nil, fmt.Errorf("tidak dapat menemukan chapter ID dari URL XComic: %s", chapterURL)
+		return nil, core.ChapterIDNotFoundError(chapterURL)
 	}
 
 	payload := map[string]interface{}{
@@ -96,7 +97,7 @@ func (x *XComic) GetImages(chapterURL string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GraphQL error: HTTP %d", resp.StatusCode)
+		return nil, core.HTTPStatusError(resp.StatusCode, resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -116,12 +117,12 @@ func (x *XComic) GetImages(chapterURL string) ([]string, error) {
 
 	var res XComicResponse
 	if err := json.Unmarshal(bodyBytes, &res); err != nil {
-		return nil, fmt.Errorf("gagal parse GraphQL JSON: %v", err)
+		return nil, core.JSONParseError("GraphQL", err)
 	}
 
 	rawUrls := res.Data.GetChapterNode.Data.ImageUrls
 	if len(rawUrls) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk chapter XComic ini")
+		return nil, core.ErrNoImagesFound
 	}
 
 	var images []string
@@ -132,7 +133,7 @@ func (x *XComic) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	return images, nil
+	return core.EnsureImages(images)
 }
 
 func init() {

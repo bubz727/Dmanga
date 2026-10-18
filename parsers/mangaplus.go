@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"manga-downloader/core"
 )
 
 var mpImageURLRegex = regexp.MustCompile(`https://[a-zA-Z0-9.\-_/]+\.(?:jpg|jpeg|png|webp|bin)`)
@@ -35,7 +37,7 @@ func (m *MangaPlus) GetImages(chapterURL string) ([]string, error) {
 		return nil, err
 	}
 
-	// Format URL: https://mangaplus.shueisha.co.jp/viewer/{chapterId}
+	// URL format: https://mangaplus.shueisha.co.jp/viewer/{chapterId}
 	cleanPath := strings.Trim(parsedURL.Path, "/")
 	parts := strings.Split(cleanPath, "/")
 
@@ -51,7 +53,7 @@ func (m *MangaPlus) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if chapterID == "" {
-		return nil, fmt.Errorf("tidak dapat menemukan chapter ID dari URL MangaPlus: %s", chapterURL)
+		return nil, core.ChapterIDNotFoundError(chapterURL)
 	}
 
 	// Generate random session UUID
@@ -75,7 +77,7 @@ func (m *MangaPlus) GetImages(chapterURL string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("MangaPlus API error: HTTP %d", resp.StatusCode)
+		return nil, core.HTTPStatusError(resp.StatusCode, resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -83,7 +85,7 @@ func (m *MangaPlus) GetImages(chapterURL string) ([]string, error) {
 		return nil, err
 	}
 
-	// Ekstrak URL gambar dari stream protobuf
+	// Extract image URLs from protobuf stream
 	rawMatches := mpImageURLRegex.FindAll(bodyBytes, -1)
 	var images []string
 	seen := make(map[string]bool)
@@ -97,7 +99,7 @@ func (m *MangaPlus) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if len(images) == 0 {
-		// Fallback: cari URL yang mengandung tokyo-cdn atau mangaplus
+		// Fallback: look for URLs containing tokyo-cdn or mangaplus
 		fallbackRegex := regexp.MustCompile(`https://[a-zA-Z0-9.\-_/]+(?:tokyo-cdn|mangaplus)[a-zA-Z0-9.\-_/]+`)
 		for _, b := range fallbackRegex.FindAll(bodyBytes, -1) {
 			u := string(b)
@@ -108,11 +110,7 @@ func (m *MangaPlus) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	if len(images) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk chapter MangaPlus ini")
-	}
-
-	return images, nil
+	return core.EnsureImages(images)
 }
 
 func generateUUID() string {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
@@ -79,21 +80,21 @@ type comiciContentsResponse struct {
 func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 	parsed, err := url.Parse(chapterURL)
 	if err != nil {
-		return nil, fmt.Errorf("URL tidak valid: %w", err)
+		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
 	}
 
 	doc, rawHTML, err := themes.FetchHTML(chapterURL, map[string]string{
 		"Referer": fmt.Sprintf("https://%s/", parsed.Host),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("gagal mengambil HTML: %w", err)
+		return nil, fmt.Errorf("failed to fetch HTML: %w", err)
 	}
 
 	viewerID := ""
 	apiDomain := ""
 	seriesHash := ""
 
-	// 1. Ekstraksi dari DOM #comici-viewer
+	// 1. Extract from #comici-viewer DOM
 	viewerEl := doc.Find("#comici-viewer")
 	if viewerEl.Length() > 0 {
 		if id, ok := viewerEl.Attr("comici-viewer-id"); ok && id != "" {
@@ -106,12 +107,12 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	// 2. Ekstraksi #xHeader
+	// 2. Extract #xHeader
 	if hash, ok := doc.Find("#xHeader").Attr("data-series-hash"); ok && hash != "" {
 		seriesHash = hash
 	}
 
-	// 3. Fallback regex jika dirender via JS
+	// 3. Fallback regex if rendered via JS
 	if viewerID == "" {
 		reViewer := regexp.MustCompile(`(?:comici-viewer-id|data-comici-viewer-id)=["']([^"']+)["']`)
 		if m := reViewer.FindStringSubmatch(rawHTML); len(m) > 1 {
@@ -119,7 +120,7 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 	if viewerID == "" {
-		// Ambil episode ID dari path URL (misal: /episodes/58ec1e11d6d08)
+		// Extract episode ID from URL path (e.g. /episodes/58ec1e11d6d08)
 		rePathID := regexp.MustCompile(`/episodes/([a-zA-Z0-9]+)`)
 		if m := rePathID.FindStringSubmatch(parsed.Path); len(m) > 1 {
 			viewerID = m[1]
@@ -139,10 +140,10 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if viewerID == "" {
-		return nil, fmt.Errorf("tidak dapat menemukan viewer-id untuk Comici pada halaman ini")
+		return nil, core.ErrViewerIDNotFound
 	}
 
-	// Tentukan startURL API
+	// Determine API startURL
 	startURL := parsed.Host
 	if apiDomain != "" {
 		if strings.HasPrefix(apiDomain, "/") {
@@ -156,7 +157,7 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 
 	client := &http.Client{Timeout: 20 * time.Second}
 
-	// Tentukan total halaman
+	// Determine total pages
 	totalPages := 0
 	if seriesHash != "" {
 		checkURL := fmt.Sprintf("https://%s/book/contentsInfo?user-id=&comici-viewer-id=%s&page-from=0&page-to=1", startURL, viewerID)
@@ -198,33 +199,33 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 		totalPages = 200
 	}
 
-	// Ambil semua halaman
+	// Fetch all pages
 	fetchURL := fmt.Sprintf("https://%s/book/contentsInfo?user-id=0&comici-viewer-id=%s&page-from=0&page-to=%d", startURL, viewerID, totalPages)
 	req, err := http.NewRequest("GET", fetchURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("gagal membuat request halaman: %w", err)
+		return nil, fmt.Errorf("failed to create page request: %w", err)
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 	req.Header.Set("Referer", chapterURL)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("gagal mengambil contentsInfo: %w", err)
+		return nil, fmt.Errorf("failed to fetch contentsInfo: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("contentsInfo HTTP error: %d %s", resp.StatusCode, resp.Status)
+		return nil, core.HTTPStatusError(resp.StatusCode, resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("gagal membaca respons contentsInfo: %w", err)
+		return nil, fmt.Errorf("failed to read contentsInfo response: %w", err)
 	}
 
 	var contents comiciContentsResponse
 	if err := json.Unmarshal(body, &contents); err != nil {
-		return nil, fmt.Errorf("gagal parse JSON contentsInfo: %w", err)
+		return nil, core.JSONParseError("contentsInfo", err)
 	}
 
 	var imageURLs []string
@@ -239,14 +240,10 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 		imageURLs = append(imageURLs, imgURL)
 	}
 
-	if len(imageURLs) == 0 {
-		return nil, fmt.Errorf("tidak ditemukan gambar pada respons Comici")
-	}
-
-	return imageURLs, nil
+	return core.EnsureImages(imageURLs)
 }
 
-// ProcessImage mendescramble puzzle potongan gambar Comici sebelum disimpan ke file
+// ProcessImage descrambles Comici puzzle image tiles before saving to file
 func (p *ComiciParser) ProcessImage(rawBytes []byte, imageURL string) ([]byte, error) {
 	return themes.ProcessImageDescramble(rawBytes, imageURL)
 }

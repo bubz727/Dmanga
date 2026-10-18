@@ -12,19 +12,19 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// Parser adalah interface utama yang diimplementasikan oleh setiap parser website
+// Parser is the primary interface implemented by every website parser
 type Parser interface {
 	Name() string
 	Domains() []string
 	GetImages(chapterURL string) ([]string, error)
 }
 
-// ImageProcessor mengizinkan parser untuk memproses atau mendescramble bytes gambar sebelum disimpan ke file
+// ImageProcessor allows a parser to process or descramble raw image bytes before saving them to disk
 type ImageProcessor interface {
 	ProcessImage(rawBytes []byte, imageURL string) ([]byte, error)
 }
 
-// FetchHTML mendownload halaman dan mengembalikan goquery Document serta string HTML mentahnya
+// FetchHTML downloads a webpage and returns both the goquery Document and raw HTML string
 func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Document, string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 
@@ -70,14 +70,14 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 	return doc, rawHTML, nil
 }
 
-// CleanImageURL membersihkan URL relatif, protokol '//', dan query resize WordPress (?w=...)
+// CleanImageURL resolves relative URLs, '//' protocol schemes, and removes WordPress resize query params (?w=...)
 func CleanImageURL(rawURL, baseHost string) string {
 	val := strings.TrimSpace(rawURL)
 	if val == "" {
 		return ""
 	}
 
-	// Hapus query parameter resize WordPress (e.g. ?w=640&quality=80)
+	// Strip WordPress resize query parameters (e.g. ?w=640&quality=80)
 	if idx := strings.Index(val, "?"); idx != -1 {
 		val = val[:idx]
 	}
@@ -95,7 +95,7 @@ func CleanImageURL(rawURL, baseHost string) string {
 	return val
 }
 
-// GetFileExtension mendeteksi ekstensi gambar (.jpg, .png, .webp)
+// GetFileExtension extracts the image extension (.jpg, .png, .webp)
 func GetFileExtension(rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err == nil {

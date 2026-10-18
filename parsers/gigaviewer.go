@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
@@ -70,24 +71,24 @@ type gigaManifest struct {
 func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
 	parsed, err := url.Parse(chapterURL)
 	if err != nil {
-		return nil, fmt.Errorf("URL tidak valid: %w", err)
+		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
 	}
 
 	doc, rawHTML, err := themes.FetchHTML(chapterURL, map[string]string{
 		"Referer": fmt.Sprintf("https://%s/", parsed.Host),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("gagal mengambil HTML: %w", err)
+		return nil, fmt.Errorf("failed to fetch HTML: %w", err)
 	}
 
 	var jsonStr string
 
-	// 1. Cek dari atribut data-value tag #episode-json
+	// 1. Check data-value attribute of #episode-json tag
 	if val, exists := doc.Find("#episode-json").Attr("data-value"); exists && strings.TrimSpace(val) != "" {
 		jsonStr = val
 	}
 
-	// 2. Cek dari inner text tag #episode-json
+	// 2. Check inner text of #episode-json tag
 	if jsonStr == "" {
 		textVal := strings.TrimSpace(doc.Find("#episode-json").Text())
 		if textVal != "" && strings.HasPrefix(textVal, "{") {
@@ -95,7 +96,7 @@ func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	// 3. Regex fallback
+	// 3. Fallback regex
 	if jsonStr == "" {
 		reDataVal := regexp.MustCompile(`id=['"]episode-json['"][^>]*data-value=['"]([^'"]+)['"]`)
 		if m := reDataVal.FindStringSubmatch(rawHTML); len(m) > 1 {
@@ -109,12 +110,12 @@ func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if jsonStr == "" {
-		return nil, fmt.Errorf("tidak dapat menemukan data manifest episode-json pada halaman")
+		return nil, core.ErrManifestNotFound
 	}
 
 	var manifest gigaManifest
 	if err := json.Unmarshal([]byte(jsonStr), &manifest); err != nil {
-		return nil, fmt.Errorf("gagal parse JSON episode: %w", err)
+		return nil, core.JSONParseError("episode", err)
 	}
 
 	isSJ := strings.Contains(parsed.Host, "shonenjumpplus.com")
@@ -130,14 +131,10 @@ func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	if len(imageURLs) == 0 {
-		return nil, fmt.Errorf("tidak ditemukan halaman gambar utama (type: main)")
-	}
-
-	return imageURLs, nil
+	return core.EnsureImages(imageURLs)
 }
 
-// ProcessImage mendescramble potongan puzzle GigaViewer sebelum disimpan ke file
+// ProcessImage descrambles GigaViewer puzzle image tiles before saving to file
 func (p *GigaViewerParser) ProcessImage(rawBytes []byte, imageURL string) ([]byte, error) {
 	return themes.ProcessImageDescramble(rawBytes, imageURL)
 }

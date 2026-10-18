@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
@@ -51,7 +52,7 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if chapterID == "" {
-		return nil, fmt.Errorf("tidak dapat menemukan chapter ID dari URL MangaBall: %s", chapterURL)
+		return nil, core.ChapterIDNotFoundError(chapterURL)
 	}
 
 	apiURL := fmt.Sprintf("https://%s/api/v1/chapter-detail?chapter_id=%s", baseHost, chapterID)
@@ -74,7 +75,7 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: HTTP %d", resp.StatusCode)
+		return nil, core.HTTPStatusError(resp.StatusCode, resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -92,7 +93,7 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 
 	var res MangaBallResponse
 	if err := json.Unmarshal(bodyBytes, &res); err != nil {
-		return nil, fmt.Errorf("gagal parse JSON MangaBall: %v", err)
+		return nil, core.JSONParseError("MangaBall", err)
 	}
 
 	var images []string
@@ -103,11 +104,7 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	if len(images) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk chapter MangaBall ini")
-	}
-
-	return images, nil
+	return core.EnsureImages(images)
 }
 
 func init() {

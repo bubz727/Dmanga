@@ -6,21 +6,21 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"manga-downloader/core"
 )
 
-// Natsu adalah base theme parser untuk tema WordPress NatsuId (diporting dari Kotatsu natsu.kt)
 type Natsu struct {
 	PageSelector string
 }
 
-// NewNatsu menginisialisasi konfigurasi default tema Natsu
+// NewNatsu initializes the default configuration for Natsu theme
 func NewNatsu() Natsu {
 	return Natsu{
 		PageSelector: "main section section > img, main section img, div.reader-area img",
 	}
 }
 
-// ExtractImages mengekstrak semua gambar chapter berdasarkan logika natsu.kt
+// ExtractImages extracts all chapter images based on natsu.kt logic
 func (n *Natsu) ExtractImages(chapterURL string) ([]string, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
@@ -41,7 +41,6 @@ func (n *Natsu) ExtractImages(chapterURL string) ([]string, error) {
 	var images []string
 	seen := make(map[string]bool)
 
-	// Kotatsu selector: main section section > img
 	doc.Find(n.PageSelector).Each(func(i int, s *goquery.Selection) {
 		imgURL := ""
 		for _, attr := range []string{"data-src", "data-lazy-src", "src"} {
@@ -61,9 +60,5 @@ func (n *Natsu) ExtractImages(chapterURL string) ([]string, error) {
 		}
 	})
 
-	if len(images) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk tema Natsu")
-	}
-
-	return images, nil
+	return core.EnsureImages(images)
 }

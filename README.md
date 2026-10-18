@@ -119,6 +119,13 @@ Inspect domain routing, HTTP status, anti-bot protection, and image extraction c
 downloadManga -t https://comic-days.com/episode/3270296674374344033
 ```
 
+### List Supported Parsers (-l, --list, list)
+Display all registered manga parsers along with their supported domains:
+
+```cmd
+downloadManga -l
+```
+
 ---
 
 ## Testing

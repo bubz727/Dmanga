@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
@@ -45,7 +46,6 @@ func (n *NaverComic) GetImages(chapterURL string) ([]string, error) {
 	var images []string
 	seen := make(map[string]bool)
 
-	// Selector dari Kotatsu naver.kt: .wt_viewer img dan .toon_view_lst img.toon_image
 	doc.Find(".wt_viewer img, .toon_view_lst img.toon_image, div#comic_view_area img").Each(func(i int, s *goquery.Selection) {
 		imgURL := ""
 		for _, attr := range []string{"data-src", "src"} {
@@ -62,11 +62,7 @@ func (n *NaverComic) GetImages(chapterURL string) ([]string, error) {
 		}
 	})
 
-	if len(images) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk Naver Comic")
-	}
-
-	return images, nil
+	return core.EnsureImages(images)
 }
 
 func init() {

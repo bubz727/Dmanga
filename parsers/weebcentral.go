@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
-// WeebCentral parser diporting dari Kotatsu weebcentral.kt
 type WeebCentral struct{}
 
 func NewWeebCentral() *WeebCentral {
@@ -32,17 +32,16 @@ func (w *WeebCentral) GetImages(chapterURL string) ([]string, error) {
 		return nil, err
 	}
 
-	// Kotatsu logic: WeebCentral memuat gambar di endpoint:
 	// https://weebcentral.com/chapters/{chapterId}/images?is_prev=False&reading_style=long_strip
 	var imagesURL string
 	if strings.Contains(chapterURL, "/images") {
 		imagesURL = chapterURL
 	} else {
-		// Bersihkan path untuk mengambil chapter id
+		// Clean path to extract chapter ID
 		cleanPath := strings.Trim(parsedURL.Path, "/")
 		parts := strings.Split(cleanPath, "/")
 
-		// Format URL: /chapters/{id} atau /chapters/{id}/...
+		// URL format: /chapters/{id} or /chapters/{id}/...
 		chapterID := ""
 		for i, part := range parts {
 			if part == "chapters" && i+1 < len(parts) {
@@ -68,7 +67,6 @@ func (w *WeebCentral) GetImages(chapterURL string) ([]string, error) {
 	var images []string
 	seen := make(map[string]bool)
 
-	// Selector dari Kotatsu: section[x-data~=scroll] > img
 	doc.Find("section[x-data~=scroll] > img, section > img").Each(func(i int, s *goquery.Selection) {
 		imgURL, exists := s.Attr("src")
 		if !exists || strings.TrimSpace(imgURL) == "" {
@@ -82,11 +80,7 @@ func (w *WeebCentral) GetImages(chapterURL string) ([]string, error) {
 		}
 	})
 
-	if len(images) == 0 {
-		return nil, fmt.Errorf("tidak ada gambar yang ditemukan untuk WeebCentral")
-	}
-
-	return images, nil
+	return core.EnsureImages(images)
 }
 
 func init() {

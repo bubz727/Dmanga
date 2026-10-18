@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
@@ -60,7 +61,7 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 		return nil, err
 	}
 
-	// Cari dan deobfuscate chapter.js sekali untuk seluruh batch
+	// Find and deobfuscate chapter.js once for the entire batch
 	var chapterJSURL string
 	doc.Find("script[src*='chapter.js']").Each(func(i int, s *goquery.Selection) {
 		if src, exists := s.Attr("src"); exists {
@@ -69,29 +70,28 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 	})
 
 	if chapterJSURL == "" {
-		return nil, fmt.Errorf("tidak dapat menemukan script chapter.js")
+		return nil, core.ErrScriptNotFound
 	}
 
 	obfuscatedJS, err := fetchRawText(chapterJSURL, headers)
 	if err != nil {
-		return nil, fmt.Errorf("gagal mendownload chapter.js: %v", err)
+		return nil, fmt.Errorf("failed to download chapter.js: %w", err)
 	}
 
 	deobfJS, err := deobfuscateSoJsonV4(obfuscatedJS)
 	if err != nil {
-		return nil, fmt.Errorf("gagal deobfuscate chapter.js: %v", err)
+		return nil, fmt.Errorf("failed to deobfuscate chapter.js: %w", err)
 	}
 
 	keyMatch := mgHexVarKeyRegex.FindStringSubmatch(deobfJS)
 	ivMatch := mgHexVarIvRegex.FindStringSubmatch(deobfJS)
 	if len(keyMatch) < 2 || len(ivMatch) < 2 {
-		return nil, fmt.Errorf("gagal menemukan key atau iv di dalam chapter.js")
+		return nil, fmt.Errorf("failed to find key or iv in chapter.js")
 	}
 
 	keyBytes, _ := hex.DecodeString(keyMatch[1])
 	ivBytes, _ := hex.DecodeString(ivMatch[1])
 
-	// Kotatsu logic: cek dropdown pagination jika ada multi-halaman
 	pageDropdown := doc.Find("div.controls ul#dropdown-menu-page li, ul#dropdown-menu-page li")
 	pagesCount := pageDropdown.Length()
 
@@ -149,12 +149,10 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 		if len(allImages) > pagesCount {
 			allImages = allImages[:pagesCount]
 		}
-		if len(allImages) > 0 {
-			return allImages, nil
-		}
+		return core.EnsureImages(allImages)
 	}
 
-	// Fallback halaman tunggal
+	// Fallback to single page
 	return decryptDocImages(doc, deobfJS, keyBytes, ivBytes)
 }
 
@@ -177,7 +175,7 @@ func decryptDocImages(doc *goquery.Document, deobfJS string, keyBytes, ivBytes [
 	}
 
 	if imgsrcsRaw == "" {
-		return nil, fmt.Errorf("tidak dapat menemukan data imgsrcs")
+		return nil, fmt.Errorf("failed to find imgsrcs data")
 	}
 
 	imgsrcBytes, err := base64.StdEncoding.DecodeString(imgsrcsRaw)
@@ -206,7 +204,7 @@ func decryptDocImages(doc *goquery.Document, deobfJS string, keyBytes, ivBytes [
 		images = append(images, u)
 	}
 
-	return images, nil
+	return core.EnsureImages(images)
 }
 
 func fetchRawText(targetURL string, headers map[string]string) (string, error) {
@@ -233,10 +231,10 @@ func fetchRawText(targetURL string, headers map[string]string) (string, error) {
 
 func deobfuscateSoJsonV4(jsf string) (string, error) {
 	if !strings.HasPrefix(jsf, "['sojson.v4']") {
-		return "", fmt.Errorf("bukan format sojson.v4")
+		return "", fmt.Errorf("not sojson.v4 format")
 	}
 	if len(jsf) < 300 {
-		return "", fmt.Errorf("panjang script tidak valid")
+		return "", fmt.Errorf("invalid script length")
 	}
 	middle := jsf[240 : len(jsf)-59]
 	args := mgSplitLetters.Split(middle, -1)

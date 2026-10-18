@@ -1,21 +1,21 @@
 package parsers
 
 import (
-	"fmt"
 	"strings"
 
+	"manga-downloader/core"
 	"manga-downloader/themes"
 )
 
-// allParsers menampung seluruh parser yang otomatis mendaftar lewat fungsi init()
+// allParsers holds all registered parsers populated automatically via init() functions
 var allParsers []themes.Parser
 
-// Register dipanggil otomatis oleh fungsi init() di tiap file parser
+// Register is called automatically by init() in each parser file
 func Register(p themes.Parser) {
 	allParsers = append(allParsers, p)
 }
 
-// FindParser mencari parser yang cocok berdasarkan domain URL
+// FindParser looks up a matching parser based on the URL domain
 func FindParser(host string) (themes.Parser, error) {
 	cleanHost := strings.ToLower(host)
 
@@ -27,5 +27,12 @@ func FindParser(host string) (themes.Parser, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("tidak ditemukan parser untuk domain '%s'", host)
+	return nil, core.NoParserFoundError(host)
+}
+
+// GetAllParsers returns a copy of all registered parsers
+func GetAllParsers() []themes.Parser {
+	result := make([]themes.Parser, len(allParsers))
+	copy(result, allParsers)
+	return result
 }

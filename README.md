@@ -12,6 +12,7 @@ A lightweight, high-performance command-line manga and comic downloader written 
 - Built-in Image Descrambling: Native puzzle-tile descrambler for Japanese platforms running Comici and GigaViewer (such as Shonen Jump+, Tonari no Young Jump, and Comic Days).
 - Informative Logging: Detailed progress output displaying original filenames, target filenames, and pixel dimensions (e.g., `sample.webp -> 001.jpg (800x1200)`).
 - Zero-Padding Output: Downloads are sequentially formatted (`001.jpg`, `002.jpg`, etc.) directly into the current directory or dedicated chapter folders.
+- Cloudflare Turnstile Solver: Integrated hybrid solver opens a lightweight browser window when Cloudflare challenges (403/503) are detected, caches `cf_clearance` cookies locally, and seamlessly resumes downloading.
 - Diagnostic Mode: Test parser extraction and check for anti-bot blocks without downloading files.
 
 ---
@@ -22,14 +23,15 @@ The downloader supports over 60 manga websites across various reader architectur
 
 - MangaFire (`mangafire.to`)
 - Asura Scans (`asurascans.com`)
+- Toonz & Toonx (`toonz.to`, `toonx.to`)
 - WeebCentral (`weebcentral.com`)
 - Rawkuma (`rawkuma.net`)
 - MangaDex (`mangadex.org`)
 - MANGA Plus by SHUEISHA (`mangaplus.shueisha.co.jp`)
 - Naver Webtoon (`comic.naver.com`, `m.comic.naver.com`)
-- MangaBall (`mangaball.com`, `mangaball.net`)
-- XComic (`xcomic.me`, `xcomic.net`, `comik.to`, `yona.to`)
-- GigaViewer Platforms (24 domains, including `comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `kuragebunch.com`, `sunday-webry.com`)
+- MangaBall (`mangaball.com`)
+- XComic (`xcomic.me`)
+- GigaViewer Platforms (25 domains, including `comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `kuragebunch.com`, `sunday-webry.com`)
 - Comici Platforms (25 domains, including `younganimal.com`, `championcross.jp`, `bigcomics.jp`, `hanayume.com`)
 
 ---

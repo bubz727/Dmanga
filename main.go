@@ -20,6 +20,7 @@ import (
 
 	_ "golang.org/x/image/webp"
 
+	"manga-downloader/core"
 	"manga-downloader/parsers"
 	"manga-downloader/themes"
 )
@@ -193,6 +194,7 @@ func runDiagnosticTest(rawURL string) {
 	req, _ := http.NewRequest("GET", rawURL, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 	req.Header.Set("Referer", fmt.Sprintf("https://%s/", parsed.Host))
+	core.ApplySessionHeaders(req, parsed.Host)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -201,17 +203,23 @@ func runDiagnosticTest(rawURL string) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusForbidden {
-		fmt.Println("[X 2/4] BLOCKED (HTTP 403) - Anti-Bot / Cloudflare WAF detected!")
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	isCF := core.IsCloudflareChallenge(resp.StatusCode, string(bodyBytes), resp.Header)
+
+	if isCF {
+		fmt.Println("[!] 2/4 Connection Status : Cloudflare Challenge Active (Will auto-solve via browser window)")
+	} else if resp.StatusCode == http.StatusForbidden {
+		fmt.Println("[X 2/4] BLOCKED (HTTP 403) - Anti-Bot WAF detected!")
 		return
 	} else if resp.StatusCode == http.StatusServiceUnavailable {
-		fmt.Println("[X 2/4] BLOCKED (HTTP 503) - Cloudflare Turnstile / Under Attack Mode!")
+		fmt.Println("[X 2/4] BLOCKED (HTTP 503) - Server unavailable!")
 		return
 	} else if resp.StatusCode != http.StatusOK {
 		fmt.Printf("[X 2/4] HTTP Error: Status %d %s\n", resp.StatusCode, resp.Status)
 		return
+	} else {
+		fmt.Println("[OK 2/4] HTTP Connection   : 200 OK (Clean access, unblocked)")
 	}
-	fmt.Println("[OK 2/4] HTTP Connection   : 200 OK (Clean access, unblocked)")
 
 	// 3. Image Extraction
 	start := time.Now()
@@ -295,6 +303,7 @@ func downloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 	req.Header.Set("Referer", fmt.Sprintf("https://%s/", host))
+	core.ApplySessionHeaders(req, host)
 
 	resp, err := client.Do(req)
 	if err != nil {

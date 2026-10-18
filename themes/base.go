@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"manga-downloader/core"
 )
 
 // Parser is the primary interface implemented by every website parser
@@ -33,17 +34,40 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 		return nil, "", err
 	}
 
-	// Default modern browser headers
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-
 	parsed, err := url.Parse(pageURL)
-	if err == nil && parsed.Host != "" {
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Modern browser headers with Chrome client hints
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Sec-Ch-Ua", `"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"`)
+	req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
+	req.Header.Set("Sec-Ch-Ua-Platform", `"Windows"`)
+	req.Header.Set("Sec-Fetch-Dest", "document")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	req.Header.Set("Sec-Fetch-User", "?1")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+
+	if parsed.Host != "" {
 		req.Header.Set("Referer", fmt.Sprintf("https://%s/", parsed.Host))
+		core.ApplySessionHeaders(req, parsed.Host)
 	}
 
 	for k, v := range customHeaders {
-		req.Header.Set(k, v)
+		if strings.EqualFold(k, "cookie") {
+			existing := req.Header.Get("Cookie")
+			if existing != "" {
+				req.Header.Set("Cookie", existing+"; "+v)
+			} else {
+				req.Header.Set("Cookie", v)
+			}
+		} else {
+			req.Header.Set(k, v)
+		}
 	}
 
 	resp, err := client.Do(req)
@@ -52,16 +76,27 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
-	}
-
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, "", err
 	}
 
 	rawHTML := string(bodyBytes)
+
+	// Check if blocked by Cloudflare challenge (403/503 Turnstile / Under Attack)
+	if core.IsCloudflareChallenge(resp.StatusCode, rawHTML, resp.Header) {
+		if core.HasAttemptedSolve(parsed.Host) {
+			return nil, "", fmt.Errorf("access denied by Cloudflare anti-bot for '%s' (verification already attempted, skipping loop)", parsed.Host)
+		}
+		solvedHTML, err := core.SolveCloudflare(pageURL)
+		if err != nil {
+			return nil, "", fmt.Errorf("Cloudflare challenge bypass failed: %w", err)
+		}
+		rawHTML = solvedHTML
+	} else if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
+	}
+
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHTML))
 	if err != nil {
 		return nil, "", err

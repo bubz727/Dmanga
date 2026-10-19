@@ -49,6 +49,11 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 			ApplySessionHeaders(req, parsed.Host)
 		}
 
+		// If session uses a custom User-Agent (e.g. Edge), remove hardcoded Chrome client hints to prevent TLS fingerprint mismatch
+		if sess := GetSession(parsed.Host); sess != nil && sess.UserAgent != "" && !strings.Contains(sess.UserAgent, "Chrome/124") {
+			req.Header.Del("Sec-Ch-Ua")
+		}
+
 		for k, v := range customHeaders {
 			if strings.EqualFold(k, "cookie") {
 				existing := req.Header.Get("Cookie")
@@ -60,6 +65,14 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 			} else {
 				req.Header.Set(k, v)
 			}
+		}
+
+		// If caller requests RSC stream or API data, adjust fetch metadata
+		if _, isRSC := customHeaders["rsc"]; isRSC {
+			req.Header.Set("Sec-Fetch-Dest", "empty")
+			req.Header.Set("Sec-Fetch-Mode", "cors")
+			req.Header.Del("Upgrade-Insecure-Requests")
+			req.Header.Set("Accept", "*/*")
 		}
 
 		resp, err := client.Do(req)
@@ -104,6 +117,12 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 				return nil, "", fmt.Errorf("Cloudflare challenge bypass failed: %w", err)
 			}
 			rawHTML = solvedHTML
+
+			// Verification succeeded! Retry with the new session cookies
+			if attempt < maxRetries {
+				time.Sleep(1 * time.Second)
+				continue
+			}
 		} else if resp.StatusCode != http.StatusOK {
 			return nil, "", fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
 		}

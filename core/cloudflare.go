@@ -88,10 +88,15 @@ func GetSessionStore() *SessionStore {
 }
 
 func getStoreFilePath() string {
+	if _, err := os.Stat(".cf_cookies.json"); err == nil {
+		return ".cf_cookies.json"
+	}
 	if exe, err := os.Executable(); err == nil {
 		dir := filepath.Dir(exe)
 		p := filepath.Join(dir, ".cf_cookies.json")
-		return p
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
 	}
 	if home, err := os.UserHomeDir(); err == nil {
 		return filepath.Join(home, ".dmanga_cookies.json")
@@ -516,6 +521,7 @@ func SolveCloudflare(targetURL string) (string, error) {
 			}
 
 			SaveSession(host, ua, cookieMap)
+			ResetAttemptedSolve(host)
 			solved = true
 			break
 		}

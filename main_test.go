@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -294,4 +295,28 @@ func TestComiciChapterTitleExtraction(t *testing.T) {
 			t.Logf("[%s] OK -> %s", tt.name, got)
 		}
 	}
+}
+
+func TestToonzRSCExtraction(t *testing.T) {
+	mockRSC := `1:HL["/uploads/chapters/1022788/13405767/001.webp","image"]
+2:{"name":"chapter","chapterNumber":"72.00","comicId":1022788}
+3:{"images":[{"filename":"/chapters/1022788/13405767/001.webp"},{"filename":"/chapters/1022788/13405767/002.webp"},{"filename":"/chapters/1022788/13405767/003.webp"}]}
+`
+	toonz := parsers.NewToonz()
+	if toonz.Name() != "Toonz" {
+		t.Fatalf("Expected parser name 'Toonz', got %q", toonz.Name())
+	}
+
+	reFilename := regexp.MustCompile(`"filename"\s*:\s*"([^"]+)"`)
+	matches := reFilename.FindAllStringSubmatch(mockRSC, -1)
+	if len(matches) != 3 {
+		t.Fatalf("Expected 3 filename matches, got %d", len(matches))
+	}
+
+	reChapter := regexp.MustCompile(`"chapterNumber"\s*:\s*"([0-9]+(?:\.[0-9]+)?)"`)
+	chMatch := reChapter.FindStringSubmatch(mockRSC)
+	if len(chMatch) <= 1 || strings.TrimSuffix(chMatch[1], ".00") != "72" {
+		t.Fatalf("Expected chapter number 72, got %v", chMatch)
+	}
+	t.Logf("[OK] Toonz RSC payload parsed: 3 images, Chapter 72")
 }

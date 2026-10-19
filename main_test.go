@@ -22,7 +22,6 @@ func getTargetURL() string {
 	if *flagURL != "" {
 		return *flagURL
 	}
-	// Check if there is a URL in os.Args (e.g. go test . -args https://...)
 	for _, arg := range os.Args {
 		if strings.HasPrefix(arg, "http://") || strings.HasPrefix(arg, "https://") {
 			return arg
@@ -30,6 +29,10 @@ func getTargetURL() string {
 	}
 	return ""
 }
+
+// ============================================================================
+// 1. Live Diagnostic Parser Test
+// ============================================================================
 
 func TestMangaParser(t *testing.T) {
 	targetURL := strings.TrimSpace(getTargetURL())
@@ -94,6 +97,10 @@ func TestMangaParser(t *testing.T) {
 	t.Logf("[SUCCESS] Parser '%s' IS 100%% FUNCTIONAL!", p.Name())
 }
 
+// ============================================================================
+// 2. Core Utility Tests
+// ============================================================================
+
 func TestImageFormatConversion(t *testing.T) {
 	// 1. JPEG magic bytes
 	jpegBytes := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10}
@@ -136,26 +143,6 @@ func TestParseInputURLs(t *testing.T) {
 	}
 }
 
-func TestNormalizeChapterTitle(t *testing.T) {
-	tests := []struct {
-		rawTitle string
-		expected string
-	}{
-		{"Chapter 344 - Saharan vs. Valhalla", "Ch 344"},
-		{"Solo Leveling Chapter 370", "Ch 370"},
-		{"Ch. 105.5: The End", "Ch 105.5"},
-		{"Special Episode", "Special Episode"},
-		{"", ""},
-	}
-
-	for _, tt := range tests {
-		got := core.NormalizeChapterTitle(tt.rawTitle)
-		if got != tt.expected {
-			t.Errorf("NormalizeChapterTitle(%q) = %q, expected %q", tt.rawTitle, got, tt.expected)
-		}
-	}
-}
-
 func TestSanitizeFolderName(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -165,6 +152,8 @@ func TestSanitizeFolderName(t *testing.T) {
 		{`Volume 1 / Ch 10 *Special* <Final>`, "Volume 1 - Ch 10 -Special- -Final-"},
 		{"  Ch 105...  ", "Ch 105"},
 		{"Ch | 12", "Ch - 12"},
+		{"第1話 忍者×魔法", "第1話 忍者×魔法"},
+		{"【レッドサム家】長女・カレンの復讐②", "【レッドサム家】長女・カレンの復讐②"},
 	}
 
 	for _, tt := range tests {
@@ -175,46 +164,7 @@ func TestSanitizeFolderName(t *testing.T) {
 	}
 }
 
-func TestAsuraScansHTMLTitleExtraction(t *testing.T) {
-	// 1. Testing with user's exact snippet from Asura Scans
-	htmlSnippet := `
-	<!DOCTYPE html>
-	<html>
-	<head><title>Overgeared - Chapter 344</title></head>
-	<body>
-		<div class="header">
-			<div class="font-semibold truncate text-zinc-400">
-				<span class="text-zinc-100">Chapter <!-- -->344</span>
-				<span class="font-normal text-sm"> - <!-- -->Saharan vs. Valhalla</span>
-			</div>
-		</div>
-	</body>
-	</html>
-	`
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlSnippet))
-	if err != nil {
-		t.Fatalf("Failed to parse HTML document: %v", err)
-	}
-
-	title := parsers.ExtractAsuraChapterTitle(doc)
-	expected := "Ch 344"
-
-	if title != expected {
-		t.Fatalf("Expected chapter title %q, got %q", expected, title)
-	}
-	t.Logf("[OK] Extracted Asura chapter title successfully as: %s", title)
-
-	// 2. Testing when the selector is absent (should return empty string, no guessing)
-	emptyDoc, _ := goquery.NewDocumentFromReader(strings.NewReader("<div>No header here</div>"))
-	emptyTitle := parsers.ExtractAsuraChapterTitle(emptyDoc)
-	if emptyTitle != "" {
-		t.Fatalf("Expected empty title when selector is missing, got %q", emptyTitle)
-	}
-}
-
 func TestMultiChapterNamingCollision(t *testing.T) {
-	// Simulating multi-link folder collision prevention logic
 	usedFolders := make(map[string]int)
 	resolveFolderName := func(title string, idx int) string {
 		folderName := title
@@ -244,5 +194,104 @@ func TestMultiChapterNamingCollision(t *testing.T) {
 	}
 	if r3 != "Ch 345" {
 		t.Errorf("Unexpected r3: %s", r3)
+	}
+}
+
+// ============================================================================
+// 3. Parser-Specific Chapter Extraction Tests
+// ============================================================================
+
+func TestAsuraScansHTMLTitleExtraction(t *testing.T) {
+	// 1. Exact modern header from Asura Scans
+	htmlSnippet := `
+	<!DOCTYPE html>
+	<html>
+	<head><title>Overgeared - Chapter 344</title></head>
+	<body>
+		<div class="header">
+			<div class="font-semibold truncate text-zinc-400">
+				<span class="text-zinc-100">Chapter <!-- -->344</span>
+				<span class="font-normal text-sm"> - <!-- -->Saharan vs. Valhalla</span>
+			</div>
+		</div>
+	</body>
+	</html>
+	`
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlSnippet))
+	if err != nil {
+		t.Fatalf("Failed to parse HTML document: %v", err)
+	}
+
+	title := parsers.ExtractAsuraChapterTitle(doc)
+	expected := "Ch 344"
+
+	if title != expected {
+		t.Fatalf("Expected chapter title %q, got %q", expected, title)
+	}
+	t.Logf("[OK] Extracted Asura chapter title successfully as: %s", title)
+
+	// 2. Absence of selector returns empty string (no guessing)
+	emptyDoc, _ := goquery.NewDocumentFromReader(strings.NewReader("<div>No header here</div>"))
+	emptyTitle := parsers.ExtractAsuraChapterTitle(emptyDoc)
+	if emptyTitle != "" {
+		t.Fatalf("Expected empty title when selector is missing, got %q", emptyTitle)
+	}
+}
+
+func TestComiciChapterTitleExtraction(t *testing.T) {
+	tests := []struct {
+		name     string
+		html     string
+		expected string
+	}{
+		{
+			name:     "Contoh 1: Manga standard dengan subjudul",
+			html:     `<div class="ep-main-h"><div class="ep-main-h-main"><h1 class="ep-main-h-h">第1話 忍者×魔法</h1><p class="ep-main-h-date">2026年8月7日</p></div></div>`,
+			expected: "第1話 忍者×魔法",
+		},
+		{
+			name:     "Contoh 2: Manhwa Webtoon header (mengabaikan judul komik)",
+			html:     `<h1 class="ep-h-main-h" data-e2e="ehTitle"><span class="ep-h-main-h-text"><a class="ep-h-main-h-series" data-e2e="ehSeriesLnk" href="/series/cffb958c0a451">耳兜の冒険者〜あいつに聞かれるな・目を合わせるな・関わるな〜</a><span data-e2e="ehEpisodeTtl">第1話</span></span></h1>`,
+			expected: "第1話",
+		},
+		{
+			name:     "Contoh 3: Manga chapter dengan part pecahan [3]",
+			html:     `<div class="ep-main-h"><div class="ep-main-h-main"><h1 class="ep-main-h-h">第1話 ［3］</h1><p class="ep-main-h-date">2025年4月24日</p></div></div>`,
+			expected: "第1話 ［3］",
+		},
+		{
+			name:     "Contoh 4: Cerita khusus dengan nomor melingkar",
+			html:     `<div class="ep-main-h-main"><h1 class="ep-main-h-h">【レッドサム家】長女・カレンの復讐②</h1><p class="ep-main-h-date">2025年11月27日</p></div>`,
+			expected: "【レッドサム家】長女・カレンの復讐②",
+		},
+		{
+			name:     "Contoh 5: Manga chapter nomor polos",
+			html:     `<div class="ep-main-h"><div class="ep-main-h-main"><h1 class="ep-main-h-h">第2話</h1><p class="ep-main-h-date">2025年8月22日</p></div></div>`,
+			expected: "第2話",
+		},
+		{
+			name:     "Contoh 6: Manga dengan kata Hou (Laporan)",
+			html:     `<div class="ep-main-h-main"><h1 class="ep-main-h-h">第1報　青春さん、立ちはだかる。</h1><p class="ep-main-h-date">2025年9月24日</p></div>`,
+			expected: "第1報 青春さん、立ちはだかる。",
+		},
+		{
+			name:     "Contoh 7: Pengumuman rilis jilid (Announcement)",
+			html:     `<div class="ep-main-h-main"><h1 class="ep-main-h-h">単行本10巻発売告知</h1></div>`,
+			expected: "単行本10巻発売告知",
+		},
+	}
+
+	for _, tt := range tests {
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(tt.html))
+		if err != nil {
+			t.Fatalf("[%s] Failed to parse HTML: %v", tt.name, err)
+		}
+		got := parsers.ExtractComiciChapterTitle(doc)
+		if got != tt.expected {
+			t.Errorf("[%s] Expected %q, got %q", tt.name, tt.expected, got)
+		} else {
+			t.Logf("[%s] OK -> %s", tt.name, got)
+		}
 	}
 }

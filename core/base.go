@@ -163,7 +163,7 @@ func FetchChapter(p Parser, chapterURL string) (*Chapter, error) {
 			return nil, err
 		}
 		if chap != nil {
-			chap.Title = NormalizeChapterTitle(chap.Title)
+			chap.Title = SanitizeFolderName(chap.Title)
 			return chap, nil
 		}
 	}

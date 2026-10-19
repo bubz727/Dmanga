@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"manga-downloader/core"
 )
 
@@ -76,7 +77,53 @@ type comiciContentsResponse struct {
 	} `json:"result"`
 }
 
-func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
+// ExtractComiciChapterTitle extracts the natural episode title from the Comici HTML document
+func ExtractComiciChapterTitle(doc *goquery.Document) string {
+	if doc == nil {
+		return ""
+	}
+
+	rawTitle := ""
+
+	// 1. Manhwa / Webtoon Header mode: span[data-e2e="ehEpisodeTtl"]
+	// Avoids taking the series title from <a class="ep-h-main-h-series">
+	doc.Find("span[data-e2e='ehEpisodeTtl']").Each(func(i int, s *goquery.Selection) {
+		if rawTitle == "" {
+			txt := strings.TrimSpace(strings.Join(strings.Fields(s.Text()), " "))
+			if txt != "" {
+				rawTitle = txt
+			}
+		}
+	})
+
+	// 2. Standard Manga mode: h1.ep-main-h-h
+	if rawTitle == "" {
+		doc.Find("h1.ep-main-h-h").Each(func(i int, s *goquery.Selection) {
+			if rawTitle == "" {
+				txt := strings.TrimSpace(strings.Join(strings.Fields(s.Text()), " "))
+				if txt != "" {
+					rawTitle = txt
+				}
+			}
+		})
+	}
+
+	// 3. Fallback: .ep-main-h-main h1
+	if rawTitle == "" {
+		doc.Find(".ep-main-h-main h1").Each(func(i int, s *goquery.Selection) {
+			if rawTitle == "" {
+				txt := strings.TrimSpace(strings.Join(strings.Fields(s.Text()), " "))
+				if txt != "" {
+					rawTitle = txt
+				}
+			}
+		})
+	}
+
+	return core.SanitizeFolderName(rawTitle)
+}
+
+func (p *ComiciParser) GetChapter(chapterURL string) (*core.Chapter, error) {
 	parsed, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
@@ -88,6 +135,8 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch HTML: %w", err)
 	}
+
+	chapterTitle := ExtractComiciChapterTitle(doc)
 
 	viewerID := ""
 	apiDomain := ""
@@ -239,7 +288,24 @@ func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
 		imageURLs = append(imageURLs, imgURL)
 	}
 
-	return core.EnsureImages(imageURLs)
+	images, err := core.EnsureImages(imageURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: images,
+	}, nil
+}
+
+// GetImages implements core.Parser for backward compatibility
+func (p *ComiciParser) GetImages(chapterURL string) ([]string, error) {
+	chap, err := p.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
 }
 
 // ProcessImage descrambles Comici puzzle image tiles before saving to file

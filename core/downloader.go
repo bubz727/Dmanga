@@ -71,26 +71,64 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 		}
 	}
 
-	req, err := http.NewRequest("GET", fetchURL, nil)
-	if err != nil {
-		return "", origName, 0, 0, err
+	maxRetries := 3
+	var bodyBytes []byte
+	var err error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		CheckRateLimitCooldown()
+
+		req, err := http.NewRequest("GET", fetchURL, nil)
+		if err != nil {
+			return "", origName, 0, 0, err
+		}
+
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+		req.Header.Set("Referer", fmt.Sprintf("https://%s/", host))
+		ApplySessionHeaders(req, host)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			if attempt < maxRetries {
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			return "", origName, 0, 0, err
+		}
+
+		// Handle Rate Limiting (HTTP 429)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			resp.Body.Close()
+			retryAfter := ParseRetryAfter(resp.Header.Get("Retry-After"), attempt)
+			fmt.Printf("\n[!] [RATE LIMIT WARNING] Host '%s' returned HTTP 429 (Too Many Requests)!\n", host)
+			fmt.Printf("[*] Pausing downloads for %v before retrying %s (attempt %d/%d)...\n\n", retryAfter, origName, attempt+1, maxRetries)
+			TriggerRateLimitCooldown(retryAfter)
+			time.Sleep(retryAfter)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			if attempt < maxRetries && (resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusGatewayTimeout || resp.StatusCode == http.StatusServiceUnavailable) {
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			return "", origName, 0, 0, fmt.Errorf("status code %d", resp.StatusCode)
+		}
+
+		bodyBytes, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			if attempt < maxRetries {
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			return "", origName, 0, 0, err
+		}
+
+		// Successfully read body
+		break
 	}
-
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-	req.Header.Set("Referer", fmt.Sprintf("https://%s/", host))
-	ApplySessionHeaders(req, host)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", origName, 0, 0, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", origName, 0, 0, fmt.Errorf("status code %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", origName, 0, 0, err
 	}

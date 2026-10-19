@@ -36,7 +36,21 @@ func (a *AsuraScans) Domains() []string {
 	}
 }
 
-func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
+// ExtractAsuraChapterTitle extracts the chapter title from the Asura Scans HTML document
+func ExtractAsuraChapterTitle(doc *goquery.Document) string {
+	rawTitle := ""
+	if doc != nil {
+		doc.Find("div.font-semibold.truncate").Each(func(i int, s *goquery.Selection) {
+			if rawTitle == "" {
+				rawTitle = strings.TrimSpace(strings.Join(strings.Fields(s.Text()), " "))
+			}
+		})
+	}
+	return core.NormalizeChapterTitle(rawTitle)
+}
+
+// GetChapter implements core.ChapterParser to extract both chapter title and image URLs
+func (a *AsuraScans) GetChapter(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, err
@@ -49,6 +63,8 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	chapterTitle := ExtractAsuraChapterTitle(doc)
 
 	// 1. APPROACH 1: Astro Island Component Props
 	var astroUrls []string
@@ -72,7 +88,10 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 	})
 
 	if len(astroUrls) > 0 {
-		return astroUrls, nil
+		return &core.Chapter{
+			Title:  chapterTitle,
+			Images: astroUrls,
+		}, nil
 	}
 
 	// 2. APPROACH 2: Next.js Streaming Chunks
@@ -135,7 +154,10 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 				}
 			}
 			if len(sortedUrls) > 0 {
-				return sortedUrls, nil
+				return &core.Chapter{
+					Title:  chapterTitle,
+					Images: sortedUrls,
+				}, nil
 			}
 		}
 	}
@@ -161,7 +183,24 @@ func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
 		}
 	})
 
-	return core.EnsureImages(fallbackImages)
+	images, err := core.EnsureImages(fallbackImages)
+	if err != nil {
+		return nil, err
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: images,
+	}, nil
+}
+
+// GetImages implements core.Parser for backward compatibility
+func (a *AsuraScans) GetImages(chapterURL string) ([]string, error) {
+	chap, err := a.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
 }
 
 func init() {

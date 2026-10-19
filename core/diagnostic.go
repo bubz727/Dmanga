@@ -61,23 +61,27 @@ func RunDiagnosticTest(rawURL string) {
 		fmt.Println("[OK 2/4] HTTP Connection   : 200 OK (Clean access, unblocked)")
 	}
 
-	// 3. Image Extraction
+	// 3. Image & Chapter Extraction
 	start := time.Now()
-	images, err := p.GetImages(rawURL)
+	chap, err := FetchChapter(p, rawURL)
 	dur := time.Since(start)
 
 	if err != nil {
 		fmt.Printf("[X 3/4] Extraction FAILED: %v\n", err)
 		return
 	}
-	if len(images) == 0 {
+	if len(chap.Images) == 0 {
 		fmt.Println("[X 3/4] Extraction FAILED: 0 images found (CSS selector or script structure may have changed)!")
 		return
 	}
-	fmt.Printf("[OK 3/4] Image Extraction  : Found %d images (time: %v)\n", len(images), dur)
+	titleInfo := ""
+	if chap.Title != "" {
+		titleInfo = fmt.Sprintf(" [Title: '%s']", chap.Title)
+	}
+	fmt.Printf("[OK 3/4] Image Extraction  : Found %d images%s (time: %v)\n", len(chap.Images), titleInfo, dur)
 
 	// 4. Sample Image URL Validation
-	sampleURL := images[0]
+	sampleURL := chap.Images[0]
 	if idx := strings.Index(sampleURL, "#"); idx != -1 {
 		sampleURL = sampleURL[:idx]
 	}

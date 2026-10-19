@@ -79,6 +79,8 @@ func main() {
 		fmt.Printf("[+] Multi-Link Mode Detected (%d Chapters)\n\n", len(urls))
 	}
 
+	usedFolders := make(map[string]int)
+
 	for idx, chapterURL := range urls {
 		parsedURL, err := url.Parse(chapterURL)
 		if err != nil || parsedURL.Host == "" {
@@ -100,23 +102,40 @@ func main() {
 			fmt.Printf("[+] Using Parser: %s\n", parser.Name())
 		}
 
-		fmt.Println("[*] Fetching chapter image URLs...")
-		imageURLs, err := parser.GetImages(chapterURL)
+		fmt.Println("[*] Fetching chapter information & image URLs...")
+		chap, err := core.FetchChapter(parser, chapterURL)
 		if err != nil {
-			fmt.Printf("[!] Failed to extract images: %v\n\n", err)
+			fmt.Printf("[!] Failed to extract chapter: %v\n\n", err)
 			continue
 		}
 
+		imageURLs := chap.Images
 		total := len(imageURLs)
 		if total == 0 {
 			fmt.Println("[!] No images found.")
 			continue
 		}
 
+		if chap.Title != "" {
+			fmt.Printf("[+] Chapter: %s\n", chap.Title)
+		}
+
 		// Determine destination folder
 		saveDir := targetDir
 		if isMulti {
-			folderName := fmt.Sprintf("Chapter %d", idx+1)
+			folderName := chap.Title
+			if folderName == "" {
+				folderName = fmt.Sprintf("Ch %d", idx+1)
+			}
+
+			// Prevent duplicate folder collisions
+			if count, exists := usedFolders[strings.ToLower(folderName)]; exists {
+				usedFolders[strings.ToLower(folderName)] = count + 1
+				folderName = fmt.Sprintf("%s (%d)", folderName, count+1)
+			} else {
+				usedFolders[strings.ToLower(folderName)] = 1
+			}
+
 			saveDir = filepath.Join(targetDir, folderName)
 			if err := os.MkdirAll(saveDir, 0755); err != nil {
 				fmt.Printf("[!] Failed to create folder '%s': %v\n\n", saveDir, err)

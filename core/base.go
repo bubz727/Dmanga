@@ -6,17 +6,29 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
+// Chapter represents a manga chapter with its title and image URLs
+type Chapter struct {
+	Title  string
+	Images []string
+}
+
 // Parser is the primary interface implemented by every website parser
 type Parser interface {
 	Name() string
 	Domains() []string
 	GetImages(chapterURL string) ([]string, error)
+}
+
+// ChapterParser is an optional interface implemented by parsers that extract both chapter title and image URLs
+type ChapterParser interface {
+	GetChapter(chapterURL string) (*Chapter, error)
 }
 
 // ImageProcessor allows a parser to process or descramble raw image bytes before saving them to disk
@@ -139,4 +151,75 @@ func GetFileExtension(rawURL string) string {
 		}
 	}
 	return ".jpg"
+}
+
+// FetchChapter extracts chapter data (images and title).
+// If the parser implements ChapterParser, it delegates to GetChapter.
+// Otherwise, it calls GetImages and leaves Title empty.
+func FetchChapter(p Parser, chapterURL string) (*Chapter, error) {
+	if cp, ok := p.(ChapterParser); ok {
+		chap, err := cp.GetChapter(chapterURL)
+		if err != nil {
+			return nil, err
+		}
+		if chap != nil {
+			chap.Title = NormalizeChapterTitle(chap.Title)
+			return chap, nil
+		}
+	}
+
+	images, err := p.GetImages(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Chapter{
+		Title:  "",
+		Images: images,
+	}, nil
+}
+
+// SanitizeFolderName removes or replaces invalid Windows path characters (\ / : * ? " < > |)
+func SanitizeFolderName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+
+	// Replace illegal Windows characters: \ / : * ? " < > |
+	invalid := regexp.MustCompile(`[\\/:*?"<>|]`)
+	cleaned := invalid.ReplaceAllString(name, "-")
+
+	// Collapse multiple spaces or dashes
+	spaceRegex := regexp.MustCompile(`\s+`)
+	cleaned = spaceRegex.ReplaceAllString(cleaned, " ")
+
+	// Trim trailing periods and spaces (Windows restriction)
+	cleaned = strings.Trim(cleaned, ". ")
+	return cleaned
+}
+
+var chapterKeywordsRegex = regexp.MustCompile(`(?i)(?:chapter|ch|c|episode|ep)[.\s-_:#]*([0-9]+(?:\.[0-9]+)?)`)
+
+// ExtractChapterNumber finds the chapter or episode number from text when explicitly preceded by chapter keywords
+func ExtractChapterNumber(s string) string {
+	if matches := chapterKeywordsRegex.FindStringSubmatch(s); len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+// NormalizeChapterTitle extracts the chapter number and returns "Ch <number>".
+// It only parses the rawTitle from the HTML/API and does NOT guess numbers from URLs.
+func NormalizeChapterTitle(rawTitle string) string {
+	rawTitle = strings.TrimSpace(rawTitle)
+	if rawTitle == "" {
+		return ""
+	}
+
+	if num := ExtractChapterNumber(rawTitle); num != "" {
+		return fmt.Sprintf("Ch %s", num)
+	}
+
+	return SanitizeFolderName(rawTitle)
 }

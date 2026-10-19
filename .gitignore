@@ -30,3 +30,7 @@ Thumbs.db
 # Temporary transfer files
 transfer-kt/
 *.kt
+
+# Personal Todo & Notes
+todo.txt
+TODO.txt

@@ -481,4 +481,110 @@ func TestMangaFireChapterTitleFromAPI(t *testing.T) {
 	t.Logf("[OK] MangaFire chapter title resolved: %s", title)
 }
 
+func TestMangaBallChapterIDExtraction(t *testing.T) {
+	tests := []struct {
+		name        string
+		url         string
+		expectedID  string
+		expectError bool
+	}{
+		{
+			name:        "1. Standard /chapter-detail/{id}",
+			url:         "https://mangaball.com/chapter-detail/6acc608ca91bdf88681cd5c0",
+			expectedID:  "6acc608ca91bdf88681cd5c0",
+			expectError: false,
+		},
+		{
+			name:        "2. URL with query parameter chapter=77",
+			url:         "https://mangaball.com/chapter-detail/6acc608ca91bdf88681cd5c0?chapter=77",
+			expectedID:  "6acc608ca91bdf88681cd5c0",
+			expectError: false,
+		},
+		{
+			name:        "3. Short /chapter/{id}",
+			url:         "https://mangaball.com/chapter/6acc608ca91bdf88681cd5c0",
+			expectedID:  "6acc608ca91bdf88681cd5c0",
+			expectError: false,
+		},
+		{
+			name:        "4. Query parameter chapter_id={id}",
+			url:         "https://mangaball.com/chapter-detail?chapter_id=6acc608ca91bdf88681cd5c0",
+			expectedID:  "6acc608ca91bdf88681cd5c0",
+			expectError: false,
+		},
+		{
+			name:        "5. Slug-id format",
+			url:         "https://mangaball.com/read/manga-slug-6acc608ca91bdf88681cd5c0",
+			expectedID:  "6acc608ca91bdf88681cd5c0",
+			expectError: false,
+		},
+		{
+			name:        "6. Title detail URL should reject with error",
+			url:         "https://mangaball.com/title-detail/6acc608ca91bdf88681cd5b0",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		got, err := parsers.ExtractMangaBallChapterID(tt.url)
+		if tt.expectError {
+			if err == nil {
+				t.Errorf("[%s] Expected error for URL %s, but got none", tt.name, tt.url)
+			} else {
+				t.Logf("[%s] OK -> got expected error: %v", tt.name, err)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("[%s] Unexpected error: %v", tt.name, err)
+			} else if got != tt.expectedID {
+				t.Errorf("[%s] Expected ID %q, got %q", tt.name, tt.expectedID, got)
+			} else {
+				t.Logf("[%s] OK -> ID: %s", tt.name, got)
+			}
+		}
+	}
+}
+
+func TestMangaBallChapterTitleFromAPI(t *testing.T) {
+	// 1. When chapter_number is provided
+	mock1 := `{"code":200,"data":{"chapter":{"chapter_number":77,"number":77,"name":"77","pages":["https://example.com/1.jpg"]}}}`
+	var res1 parsers.MangaBallResponse
+	if err := json.Unmarshal([]byte(mock1), &res1); err != nil {
+		t.Fatalf("Failed to parse mock1: %v", err)
+	}
+	title1 := parsers.FormatMangaBallChapterTitle(&res1, "https://mangaball.com/chapter-detail/6acc608ca91bdf88681cd5c0")
+	if title1 != "Ch 77" {
+		t.Errorf("Expected 'Ch 77', got %q", title1)
+	} else {
+		t.Logf("[OK] MangaBall integer chapter resolved: %s", title1)
+	}
+
+	// 2. When number is float (e.g. 13.5)
+	mock2 := `{"code":200,"data":{"chapter":{"number":13.5,"name":"13.5","pages":["https://example.com/1.jpg"]}}}`
+	var res2 parsers.MangaBallResponse
+	if err := json.Unmarshal([]byte(mock2), &res2); err != nil {
+		t.Fatalf("Failed to parse mock2: %v", err)
+	}
+	title2 := parsers.FormatMangaBallChapterTitle(&res2, "https://mangaball.com/chapter-detail/6acc608ca91bdf88681cd5c0")
+	if title2 != "Ch 13.5" {
+		t.Errorf("Expected 'Ch 13.5', got %q", title2)
+	} else {
+		t.Logf("[OK] MangaBall float chapter resolved: %s", title2)
+	}
+
+	// 3. When raw text name is Chapter 42
+	mock3 := `{"code":200,"data":{"chapter":{"name":"Chapter 42","pages":["https://example.com/1.jpg"]}}}`
+	var res3 parsers.MangaBallResponse
+	if err := json.Unmarshal([]byte(mock3), &res3); err != nil {
+		t.Fatalf("Failed to parse mock3: %v", err)
+	}
+	title3 := parsers.FormatMangaBallChapterTitle(&res3, "https://mangaball.com/chapter-detail/6acc608ca91bdf88681cd5c0")
+	if title3 != "Ch 42" {
+		t.Errorf("Expected 'Ch 42', got %q", title3)
+	} else {
+		t.Logf("[OK] MangaBall name string resolved: %s", title3)
+	}
+}
+
+
 

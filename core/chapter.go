@@ -11,6 +11,13 @@ func FetchChapter(p Parser, chapterURL string) (*Chapter, error) {
 		}
 		if chap != nil {
 			chap.Title = SanitizeFolderName(chap.Title)
+			if len(chap.Images) == 0 {
+				images, err := p.GetImages(chapterURL)
+				if err != nil {
+					return nil, err
+				}
+				chap.Images = images
+			}
 			return chap, nil
 		}
 	}

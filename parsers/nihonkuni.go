@@ -28,7 +28,7 @@ func (n *Nihonkuni) Domains() []string {
 	}
 }
 
-func (n *Nihonkuni) GetImages(chapterURL string) ([]string, error) {
+func (n *Nihonkuni) getChapterInternal(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
@@ -102,7 +102,35 @@ func (n *Nihonkuni) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	return core.EnsureImages(images)
+	validImgs, err := core.EnsureImages(images)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := ""
+	text := strings.TrimSpace(doc.Find(".breadcrumb-navigation .breadcrumb-item").Last().Text())
+	if num := core.ExtractChapterNumber(text); num != "" {
+		chapterTitle = fmt.Sprintf("Ch %s", num)
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: validImgs,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (n *Nihonkuni) GetImages(chapterURL string) ([]string, error) {
+	chap, err := n.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
+}
+
+// GetChapter extracts both the chapter title and image URLs
+func (n *Nihonkuni) GetChapter(chapterURL string) (*core.Chapter, error) {
+	return n.getChapterInternal(chapterURL)
 }
 
 func init() {

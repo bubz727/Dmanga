@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -84,57 +85,159 @@ func (m *MangaFire) Domains() []string {
 
 var chapterIDRegex = regexp.MustCompile(`(?:chapter_id|current_chapter_id|id)\s*[:=]\s*["']?(\d+)["']?`)
 
-func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
+func extractMangaFireHID(segment string) string {
+	if idx := strings.LastIndex(segment, "."); idx != -1 {
+		return segment[idx+1:]
+	}
+	if idx := strings.Index(segment, "-"); idx != -1 {
+		return segment[:idx]
+	}
+	return segment
+}
+
+// GetChapter extracts both the chapter title and image URLs
+func (m *MangaFire) GetChapter(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, err
 	}
 	baseHost := parsedURL.Host
 
-	// Extract chapter ID from URL or reader page HTML
-	chapterID := ""
 	cleanPath := strings.Trim(parsedURL.Path, "/")
 	parts := strings.Split(cleanPath, "/")
 
-	// Check if URL directly contains /title/.../12345
-	if len(parts) >= 3 && parts[0] == "title" {
-		chapterID = parts[len(parts)-1]
+	chapterID := ""
+	chapterTitle := ""
+
+	// 1. Check if URL directly contains numeric ID: /title/.../chapter/{id} or /title/.../{id}
+	for i, p := range parts {
+		if (p == "chapter" || p == "chapters") && i+1 < len(parts) {
+			if _, numErr := strconv.Atoi(parts[i+1]); numErr == nil {
+				chapterID = parts[i+1]
+				break
+			}
+		}
+	}
+	if chapterID == "" && len(parts) >= 2 && parts[0] == "title" {
+		last := parts[len(parts)-1]
+		if _, numErr := strconv.Atoi(last); numErr == nil {
+			chapterID = last
+		}
 	}
 
-	// If URL is /read/..., fetch the page to look for data-id
-	if chapterID == "" || strings.HasPrefix(cleanPath, "read/") {
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	// 2. If URL is reader format: /read/{slug.hid}/{lang}/chapter-{num}
+	if chapterID == "" && len(parts) >= 4 && parts[0] == "read" {
+		mangaSegment := parts[1]
+		lang := parts[2]
+		chSegment := parts[3]
+
+		hid := extractMangaFireHID(mangaSegment)
+		reNum := regexp.MustCompile(`(?:chapter|volume|vol|ch)-([0-9]+(?:\.[0-9]+)?)`)
+		targetNum := ""
+		if match := reNum.FindStringSubmatch(chSegment); len(match) > 1 {
+			targetNum = match[1]
+			chapterTitle = fmt.Sprintf("Ch %s", targetNum)
+		}
+
+		// Query chapter list from MangaFire API to resolve chapterID
+		page := 1
+		for page <= 5 && chapterID == "" {
+			canonical := fmt.Sprintf("/titles/%s/chapters?language=%s&limit=200&page=%d&sort=number", hid, lang, page)
+			vrf := signVrf(canonical)
+			apiURL := fmt.Sprintf("https://%s/api%s&vrf=%s", baseHost, canonical, url.QueryEscape(vrf))
+
+			req, err := http.NewRequest("GET", apiURL, nil)
+			if err != nil {
+				break
+			}
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+			req.Header.Set("Referer", fmt.Sprintf("https://%s/", baseHost))
+			req.Header.Set("Accept", "application/json")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				break
+			}
+
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			var listResp struct {
+				Meta struct {
+					LastPage int `json:"lastPage"`
+				} `json:"meta"`
+				Items []struct {
+					ID     int         `json:"id"`
+					Number json.Number `json:"number"`
+					Name   string      `json:"name"`
+				} `json:"items"`
+			}
+
+			if err := json.Unmarshal(body, &listResp); err != nil {
+				break
+			}
+
+			for _, item := range listResp.Items {
+				if item.Number.String() == targetNum {
+					chapterID = strconv.Itoa(item.ID)
+					break
+				}
+			}
+
+			if chapterID != "" || page >= listResp.Meta.LastPage || len(listResp.Items) == 0 {
+				if chapterID == "" && len(listResp.Items) > 0 {
+					chapterID = strconv.Itoa(listResp.Items[0].ID)
+				}
+				break
+			}
+			page++
+		}
+	}
+
+	// 3. Fallback: Try HTML if chapterID is still empty
+	if chapterID == "" {
 		doc, rawHTML, err := core.FetchHTML(chapterURL, map[string]string{
 			"Referer": fmt.Sprintf("https://%s/", baseHost),
 		})
 		if err == nil {
-			// Find in reader data-id
 			doc.Find("#reader, [data-id], .read-container").Each(func(i int, s *goquery.Selection) {
 				if id, exists := s.Attr("data-id"); exists && id != "" && chapterID == "" {
 					chapterID = id
 				}
+				if name, exists := s.Attr("data-name"); exists && strings.TrimSpace(name) != "" && chapterTitle == "" {
+					chapterTitle = core.NormalizeChapterTitle(name)
+				}
+				if num, exists := s.Attr("data-number"); exists && strings.TrimSpace(num) != "" && chapterTitle == "" {
+					chapterTitle = core.NormalizeChapterTitle(num)
+				}
 			})
 
-			// Find in script data
 			if chapterID == "" {
 				if match := chapterIDRegex.FindStringSubmatch(rawHTML); len(match) > 1 {
 					chapterID = match[1]
+				}
+			}
+
+			if chapterTitle == "" {
+				breadText := strings.TrimSpace(doc.Find(".breadcrumb li:last-child, .breadcrumb-item:last-child, .breadcrumb .active").Text())
+				if breadText != "" {
+					chapterTitle = core.NormalizeChapterTitle(breadText)
 				}
 			}
 		}
 	}
 
 	if chapterID == "" {
-		// Fallback: use last segment of URL
 		chapterID = parts[len(parts)-1]
 	}
 
-	// Build query to /api/chapters/{chapterId} with VRF signature
+	// 4. Query /api/chapters/{chapterId} with VRF signature
 	apiPath := fmt.Sprintf("/chapters/%s", chapterID)
 	vrf := signVrf(apiPath)
-
 	apiURL := fmt.Sprintf("https://%s/api%s?vrf=%s", baseHost, apiPath, url.QueryEscape(vrf))
 
-	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, err
@@ -160,7 +263,9 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 
 	type MangaFireResponse struct {
 		Data struct {
-			Pages []struct {
+			Number json.Number `json:"number"`
+			Name   string      `json:"name"`
+			Pages  []struct {
 				URL string `json:"url"`
 			} `json:"pages"`
 		} `json:"data"`
@@ -171,6 +276,18 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 		return nil, core.JSONParseError("MangaFire", err)
 	}
 
+	if res.Data.Number.String() != "" {
+		chapterTitle = fmt.Sprintf("Ch %s", res.Data.Number.String())
+	} else if chapterTitle == "" && res.Data.Name != "" {
+		chapterTitle = core.NormalizeChapterTitle(res.Data.Name)
+	}
+
+	if chapterTitle == "" {
+		if num := core.ExtractChapterNumber(chapterURL); num != "" {
+			chapterTitle = fmt.Sprintf("Ch %s", num)
+		}
+	}
+
 	var images []string
 	for _, page := range res.Data.Pages {
 		clean := core.CleanImageURL(page.URL, baseHost)
@@ -179,7 +296,24 @@ func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	return core.EnsureImages(images)
+	validImgs, err := core.EnsureImages(images)
+	if err != nil {
+		return nil, err
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: validImgs,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (m *MangaFire) GetImages(chapterURL string) ([]string, error) {
+	chap, err := m.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
 }
 
 func init() {

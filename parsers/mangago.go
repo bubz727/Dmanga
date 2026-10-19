@@ -43,7 +43,8 @@ func (m *Mangago) Domains() []string {
 	}
 }
 
-func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
+// GetChapter extracts both the chapter title and image URLs
+func (m *Mangago) GetChapter(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, err
@@ -59,6 +60,13 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	chapterTitle := ""
+	rawTitle := strings.TrimSpace(doc.Find("a#dropdown-chapter-page, .btn-group a.chapter").First().Text())
+	if rawTitle == "" {
+		rawTitle = strings.TrimSpace(doc.Find("head title").Text())
+	}
+	chapterTitle = core.NormalizeChapterTitle(rawTitle)
 
 	// Find and deobfuscate chapter.js once for the entire batch
 	var chapterJSURL string
@@ -94,6 +102,7 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 	pageDropdown := doc.Find("div.controls ul#dropdown-menu-page li, ul#dropdown-menu-page li")
 	pagesCount := pageDropdown.Length()
 
+	var images []string
 	if pagesCount > 1 {
 		cleanURL := strings.TrimRight(chapterURL, "/")
 		parts := strings.Split(cleanURL, "/")
@@ -148,11 +157,33 @@ func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
 		if len(allImages) > pagesCount {
 			allImages = allImages[:pagesCount]
 		}
-		return core.EnsureImages(allImages)
+		validImgs, err := core.EnsureImages(allImages)
+		if err != nil {
+			return nil, err
+		}
+		images = validImgs
+	} else {
+		// Single page
+		validImgs, err := decryptDocImages(doc, deobfJS, keyBytes, ivBytes)
+		if err != nil {
+			return nil, err
+		}
+		images = validImgs
 	}
 
-	// Fallback to single page
-	return decryptDocImages(doc, deobfJS, keyBytes, ivBytes)
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: images,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (m *Mangago) GetImages(chapterURL string) ([]string, error) {
+	chap, err := m.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
 }
 
 func decryptDocImages(doc *goquery.Document, deobfJS string, keyBytes, ivBytes []byte) ([]string, error) {

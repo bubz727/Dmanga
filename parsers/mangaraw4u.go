@@ -102,6 +102,21 @@ func (m *MangaRaw4U) GetImages(chapterURL string) ([]string, error) {
 	return core.EnsureImages(images)
 }
 
+// GetChapter extracts both the chapter title and image URLs
+func (m *MangaRaw4U) GetChapter(chapterURL string) (*core.Chapter, error) {
+	images, err := m.GetImages(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := core.ExtractMangaRaw4UChapterTitle(chapterURL)
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: images,
+	}, nil
+}
+
 func init() {
 	core.Register(NewMangaRaw4U())
 }

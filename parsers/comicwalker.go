@@ -36,7 +36,8 @@ func (c *ComicWalker) Domains() []string {
 	}
 }
 
-func (c *ComicWalker) GetImages(chapterURL string) ([]string, error) {
+// GetChapter extracts both authentic Japanese chapter title and image URLs
+func (c *ComicWalker) GetChapter(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, err
@@ -45,13 +46,16 @@ func (c *ComicWalker) GetImages(chapterURL string) ([]string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	episodeID := parsedURL.Query().Get("episodeId")
+	chapterTitle := ""
+
 	if episodeID == "" {
 		// 1. Check if URL contains /episodes/{episodeCode}
 		if epMatches := cwEpisodeRegex.FindStringSubmatch(parsedURL.Path); len(epMatches) > 1 {
 			episodeCode := epMatches[1]
-			epID, err := c.fetchEpisodeIDByCode(client, episodeCode)
+			epID, epTitle, err := c.fetchEpisodeInfoByCode(client, episodeCode)
 			if err == nil && epID != "" {
 				episodeID = epID
+				chapterTitle = epTitle
 			}
 		}
 
@@ -60,9 +64,10 @@ func (c *ComicWalker) GetImages(chapterURL string) ([]string, error) {
 			if detailMatches := cwDetailRegex.FindStringSubmatch(parsedURL.Path); len(detailMatches) > 1 {
 				workCode := detailMatches[1]
 				epType := strings.ToLower(parsedURL.Query().Get("episodeType"))
-				epID, err := c.fetchEpisodeIDByWork(client, workCode, epType)
+				epID, epTitle, err := c.fetchEpisodeInfoByWork(client, workCode, epType)
 				if err == nil && epID != "" {
 					episodeID = epID
+					chapterTitle = epTitle
 				}
 			}
 		}
@@ -98,6 +103,7 @@ func (c *ComicWalker) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	var viewerResp struct {
+		Title       string `json:"title"`
 		Manuscripts []struct {
 			DrmMode     string `json:"drmMode"`
 			DrmHash     string `json:"drmHash"`
@@ -113,6 +119,10 @@ func (c *ComicWalker) GetImages(chapterURL string) ([]string, error) {
 		return nil, core.ErrNoImagesFound
 	}
 
+	if chapterTitle == "" && viewerResp.Title != "" {
+		chapterTitle = viewerResp.Title
+	}
+
 	var images []string
 	for _, m := range viewerResp.Manuscripts {
 		imgURL := m.DrmImageUrl
@@ -126,7 +136,24 @@ func (c *ComicWalker) GetImages(chapterURL string) ([]string, error) {
 		images = append(images, imgURL)
 	}
 
-	return core.EnsureImages(images)
+	validImgs, err := core.EnsureImages(images)
+	if err != nil {
+		return nil, err
+	}
+
+	return &core.Chapter{
+		Title:  core.SanitizeFolderName(chapterTitle),
+		Images: validImgs,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (c *ComicWalker) GetImages(chapterURL string) ([]string, error) {
+	chap, err := c.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
 }
 
 // ProcessImage implements core.ImageProcessor to decrypt XOR-scrambled WebP images
@@ -161,7 +188,7 @@ func (c *ComicWalker) ProcessImage(rawBytes []byte, imageURL string) ([]byte, er
 	return dec, nil
 }
 
-func (c *ComicWalker) fetchEpisodeIDByCode(client *http.Client, episodeCode string) (string, error) {
+func (c *ComicWalker) fetchEpisodeInfoByCode(client *http.Client, episodeCode string) (string, string, error) {
 	apiURL := fmt.Sprintf("https://comic-walker.com/api/contents/details/episode?episodeCode=%s&workCode=0&episodeType=first", url.QueryEscape(episodeCode))
 	req, _ := http.NewRequest("GET", apiURL, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -170,29 +197,30 @@ func (c *ComicWalker) fetchEpisodeIDByCode(client *http.Client, episodeCode stri
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("status %d", resp.StatusCode)
+		return "", "", fmt.Errorf("status %d", resp.StatusCode)
 	}
 
 	var data struct {
 		Episode struct {
-			ID string `json:"id"`
+			ID    string `json:"id"`
+			Title string `json:"title"`
 		} `json:"episode"`
 	}
 
 	body, _ := io.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, &data); err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return data.Episode.ID, nil
+	return data.Episode.ID, data.Episode.Title, nil
 }
 
-func (c *ComicWalker) fetchEpisodeIDByWork(client *http.Client, workCode, epType string) (string, error) {
+func (c *ComicWalker) fetchEpisodeInfoByWork(client *http.Client, workCode, epType string) (string, string, error) {
 	apiURL := fmt.Sprintf("https://comic-walker.com/api/contents/details/work?workCode=%s", url.QueryEscape(workCode))
 	req, _ := http.NewRequest("GET", apiURL, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -201,51 +229,53 @@ func (c *ComicWalker) fetchEpisodeIDByWork(client *http.Client, workCode, epType
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("status %d", resp.StatusCode)
+		return "", "", fmt.Errorf("status %d", resp.StatusCode)
 	}
 
 	var data struct {
 		LatestEpisodeID string `json:"latestEpisodeId"`
 		FirstEpisodes   struct {
 			Result []struct {
-				ID string `json:"id"`
+				ID    string `json:"id"`
+				Title string `json:"title"`
 			} `json:"result"`
 		} `json:"firstEpisodes"`
 		LatestEpisodes struct {
 			Result []struct {
-				ID string `json:"id"`
+				ID    string `json:"id"`
+				Title string `json:"title"`
 			} `json:"result"`
 		} `json:"latestEpisodes"`
 	}
 
 	body, _ := io.ReadAll(resp.Body)
 	if err := json.Unmarshal(body, &data); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if epType == "latest" {
-		if data.LatestEpisodeID != "" {
-			return data.LatestEpisodeID, nil
-		}
 		if len(data.LatestEpisodes.Result) > 0 {
-			return data.LatestEpisodes.Result[0].ID, nil
+			return data.LatestEpisodes.Result[0].ID, data.LatestEpisodes.Result[0].Title, nil
+		}
+		if data.LatestEpisodeID != "" {
+			return data.LatestEpisodeID, "", nil
 		}
 	}
 
 	// Default: first episode
 	if len(data.FirstEpisodes.Result) > 0 {
-		return data.FirstEpisodes.Result[0].ID, nil
+		return data.FirstEpisodes.Result[0].ID, data.FirstEpisodes.Result[0].Title, nil
 	}
 	if len(data.LatestEpisodes.Result) > 0 {
-		return data.LatestEpisodes.Result[0].ID, nil
+		return data.LatestEpisodes.Result[0].ID, data.LatestEpisodes.Result[0].Title, nil
 	}
 
-	return "", fmt.Errorf("no episodes found for work code: %s", workCode)
+	return "", "", fmt.Errorf("no episodes found for work code: %s", workCode)
 }
 
 func init() {

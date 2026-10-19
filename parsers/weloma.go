@@ -29,7 +29,7 @@ func (w *Weloma) Domains() []string {
 	}
 }
 
-func (w *Weloma) GetImages(chapterURL string) ([]string, error) {
+func (w *Weloma) getChapterInternal(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
@@ -107,7 +107,35 @@ func (w *Weloma) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	return core.EnsureImages(images)
+	validImgs, err := core.EnsureImages(images)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := ""
+	titleText := strings.TrimSpace(doc.Find("ol.breadcrumb li:last-child span[itemprop='name'], .breadcrumb li:last-child a, .breadcrumb li:last-child").Last().Text())
+	if num := core.ExtractChapterNumber(titleText); num != "" {
+		chapterTitle = fmt.Sprintf("Ch %s", num)
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: validImgs,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (w *Weloma) GetImages(chapterURL string) ([]string, error) {
+	chap, err := w.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
+}
+
+// GetChapter extracts both the chapter title and image URLs
+func (w *Weloma) GetChapter(chapterURL string) (*core.Chapter, error) {
+	return w.getChapterInternal(chapterURL)
 }
 
 func init() {

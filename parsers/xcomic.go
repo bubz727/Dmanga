@@ -133,6 +133,30 @@ func (x *XComic) GetImages(chapterURL string) ([]string, error) {
 	return core.EnsureImages(images)
 }
 
+// GetChapter extracts both the chapter title and image URLs
+func (x *XComic) GetChapter(chapterURL string) (*core.Chapter, error) {
+	images, err := x.GetImages(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := ""
+	doc, _, err := core.FetchHTML(chapterURL, map[string]string{
+		"Referer": chapterURL,
+	})
+	if err == nil && doc != nil {
+		text := strings.TrimSpace(doc.Find("h6 a span, h6 a, h1, .chapter-title").First().Text())
+		if num := core.ExtractChapterNumber(text); num != "" {
+			chapterTitle = fmt.Sprintf("Ch %s", num)
+		}
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: images,
+	}, nil
+}
+
 func init() {
 	core.Register(NewXComic())
 }

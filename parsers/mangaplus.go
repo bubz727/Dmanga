@@ -113,6 +113,31 @@ func (m *MangaPlus) GetImages(chapterURL string) ([]string, error) {
 	return core.EnsureImages(images)
 }
 
+// GetChapter extracts both the chapter title and image URLs
+func (m *MangaPlus) GetChapter(chapterURL string) (*core.Chapter, error) {
+	images, err := m.GetImages(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := ""
+	doc, _, err := core.FetchHTML(chapterURL, map[string]string{
+		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+	})
+	if err == nil {
+		rawTitle := strings.TrimSpace(doc.Find("p[class*='chapterTitle'], [class*='chapterTitle'], .chapter-title").First().Text())
+		if rawTitle == "" {
+			rawTitle = strings.TrimSpace(doc.Find("head title").Text())
+		}
+		chapterTitle = core.NormalizeChapterTitle(rawTitle)
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: images,
+	}, nil
+}
+
 func generateUUID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)

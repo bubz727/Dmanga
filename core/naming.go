@@ -6,7 +6,12 @@ import (
 	"strings"
 )
 
-var chapterKeywordsRegex = regexp.MustCompile(`(?i)(?:chapter|ch|c|episode|ep)[.\s-_:#]*([0-9]+(?:\.[0-9]+)?)`)
+var (
+	chapterKeywordsRegex      = regexp.MustCompile(`(?i)(?:chapter|chap|ch|c|episode|ep)[.\s-_:#]*([0-9]+(?:\.[0-9]+)?)`)
+	koreanHwaRegex            = regexp.MustCompile(`([0-9]+(?:\.[0-9]+)?)\s*화`)
+	hashChapterRegex          = regexp.MustCompile(`(?i)#\s*([0-9]+(?:\.[0-9]+)?)`)
+	mangaraw4uChapterURLRegex = regexp.MustCompile(`(?i)chapter-([0-9]+)(?:-([0-9]+))?`)
+)
 
 // SanitizeFolderName removes or replaces invalid Windows path characters (\ / : * ? " < > |)
 func SanitizeFolderName(name string) string {
@@ -32,6 +37,32 @@ func SanitizeFolderName(name string) string {
 func ExtractChapterNumber(s string) string {
 	if matches := chapterKeywordsRegex.FindStringSubmatch(s); len(matches) > 1 {
 		return matches[1]
+	}
+	if matches := koreanHwaRegex.FindStringSubmatch(s); len(matches) > 1 {
+		return matches[1]
+	}
+	if matches := hashChapterRegex.FindStringSubmatch(s); len(matches) > 1 {
+		trimmed := strings.TrimLeft(matches[1], "0")
+		if trimmed == "" {
+			return "0"
+		}
+		return trimmed
+	}
+	return ""
+}
+
+// ExtractMangaRaw4UChapterTitle extracts the chapter number from a MangaRaw4U chapter URL
+func ExtractMangaRaw4UChapterTitle(chapterURL string) string {
+	if m := mangaraw4uChapterURLRegex.FindStringSubmatch(chapterURL); len(m) > 1 {
+		num := m[1]
+		if len(m) > 2 && m[2] != "" {
+			part := m[2]
+			if len(part) == 1 {
+				part = part + "0"
+			}
+			return fmt.Sprintf("Ch %s.%s", num, part)
+		}
+		return fmt.Sprintf("Ch %s", num)
 	}
 	return ""
 }

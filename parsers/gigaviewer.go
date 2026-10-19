@@ -67,7 +67,8 @@ type gigaManifest struct {
 	} `json:"readableProduct"`
 }
 
-func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
+// GetChapter extracts both the authentic Japanese chapter title and image URLs
+func (p *GigaViewerParser) GetChapter(chapterURL string) (*core.Chapter, error) {
 	parsed, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
@@ -130,7 +131,31 @@ func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	return core.EnsureImages(imageURLs)
+	validImgs, err := core.EnsureImages(imageURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := ""
+	if manifest.ReadableProduct.Title != "" {
+		chapterTitle = core.SanitizeFolderName(manifest.ReadableProduct.Title)
+	} else {
+		chapterTitle = core.SanitizeFolderName(doc.Find("head title").Text())
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: validImgs,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (p *GigaViewerParser) GetImages(chapterURL string) ([]string, error) {
+	chap, err := p.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
 }
 
 // ProcessImage descrambles GigaViewer puzzle image tiles before saving to file

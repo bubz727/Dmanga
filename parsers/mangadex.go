@@ -38,10 +38,10 @@ type mangaDexAtHomeResponse struct {
 	} `json:"chapter"`
 }
 
-func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
+func extractMangaDexChapterID(chapterURL string) (string, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// URL format: https://mangadex.org/chapter/{chapterId} or /chapter/{chapterId}/1
@@ -61,7 +61,81 @@ func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	if chapterID == "" {
-		return nil, core.ChapterIDNotFoundError(chapterURL)
+		return "", core.ChapterIDNotFoundError(chapterURL)
+	}
+	return chapterID, nil
+}
+
+func fetchMangaDexChapterTitle(client *http.Client, chapterID string) string {
+	apiURL := fmt.Sprintf("https://api.mangadex.org/chapter/%s", chapterID)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	var res struct {
+		Data struct {
+			Attributes struct {
+				Chapter *string `json:"chapter"`
+				Title   *string `json:"title"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return ""
+	}
+
+	if res.Data.Attributes.Chapter != nil && strings.TrimSpace(*res.Data.Attributes.Chapter) != "" {
+		chNum := strings.TrimSpace(*res.Data.Attributes.Chapter)
+		return fmt.Sprintf("Ch %s", chNum)
+	}
+
+	if res.Data.Attributes.Title != nil && strings.TrimSpace(*res.Data.Attributes.Title) != "" {
+		return core.SanitizeFolderName(*res.Data.Attributes.Title)
+	}
+
+	return ""
+}
+
+// GetChapter extracts both the chapter title and image URLs
+func (m *MangaDex) GetChapter(chapterURL string) (*core.Chapter, error) {
+	chapterID, err := extractMangaDexChapterID(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+
+	images, err := m.GetImages(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	chapterTitle := fetchMangaDexChapterTitle(client, chapterID)
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: images,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (m *MangaDex) GetImages(chapterURL string) ([]string, error) {
+	chapterID, err := extractMangaDexChapterID(chapterURL)
+	if err != nil {
+		return nil, err
 	}
 
 	apiURL := fmt.Sprintf("https://api.mangadex.org/at-home/server/%s?forcePort443=false", chapterID)

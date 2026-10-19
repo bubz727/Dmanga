@@ -82,6 +82,42 @@ func (w *WeebCentral) GetImages(chapterURL string) ([]string, error) {
 	return core.EnsureImages(images)
 }
 
+// GetChapter extracts both the chapter title and image URLs
+func (w *WeebCentral) GetChapter(chapterURL string) (*core.Chapter, error) {
+	images, err := w.GetImages(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := ""
+	// Fetch reader page (without /images) to get the chapter button text
+	readerURL := chapterURL
+	if idx := strings.Index(readerURL, "/images"); idx != -1 {
+		readerURL = readerURL[:idx]
+	}
+
+	parsedURL, _ := url.Parse(readerURL)
+	host := ""
+	if parsedURL != nil {
+		host = parsedURL.Host
+	}
+
+	doc, _, err := core.FetchHTML(readerURL, map[string]string{
+		"Referer": fmt.Sprintf("https://%s/", host),
+	})
+	if err == nil && doc != nil {
+		text := strings.TrimSpace(doc.Find("button[onclick*='chapter_select_modal'] span, button.btn-secondary span, h1").First().Text())
+		if num := core.ExtractChapterNumber(text); num != "" {
+			chapterTitle = fmt.Sprintf("Ch %s", num)
+		}
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: images,
+	}, nil
+}
+
 func init() {
 	core.Register(NewWeebCentral())
 }

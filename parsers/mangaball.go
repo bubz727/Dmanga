@@ -28,7 +28,8 @@ func (m *MangaBall) Domains() []string {
 	}
 }
 
-func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
+// GetChapter extracts both the chapter title and image URLs
+func (m *MangaBall) GetChapter(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, err
@@ -84,7 +85,10 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 	type MangaBallResponse struct {
 		Data struct {
 			Chapter struct {
-				Pages []string `json:"pages"`
+				Name        string   `json:"name"`
+				ChapterName string   `json:"chapter_name"`
+				Title       string   `json:"title"`
+				Pages       []string `json:"pages"`
 			} `json:"chapter"`
 		} `json:"data"`
 	}
@@ -94,6 +98,15 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 		return nil, core.JSONParseError("MangaBall", err)
 	}
 
+	rawTitle := strings.TrimSpace(res.Data.Chapter.ChapterName)
+	if rawTitle == "" {
+		rawTitle = strings.TrimSpace(res.Data.Chapter.Name)
+	}
+	if rawTitle == "" {
+		rawTitle = strings.TrimSpace(res.Data.Chapter.Title)
+	}
+	chapterTitle := core.NormalizeChapterTitle(rawTitle)
+
 	var images []string
 	for _, raw := range res.Data.Chapter.Pages {
 		clean := core.CleanImageURL(raw, baseHost)
@@ -102,7 +115,24 @@ func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	return core.EnsureImages(images)
+	validImgs, err := core.EnsureImages(images)
+	if err != nil {
+		return nil, err
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: validImgs,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (m *MangaBall) GetImages(chapterURL string) ([]string, error) {
+	chap, err := m.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
 }
 
 func init() {

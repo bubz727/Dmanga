@@ -27,7 +27,7 @@ func (m *Manganato) Domains() []string {
 	}
 }
 
-func (m *Manganato) GetImages(chapterURL string) ([]string, error) {
+func (m *Manganato) getChapterInternal(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", core.ErrInvalidURL, err)
@@ -84,7 +84,35 @@ func (m *Manganato) GetImages(chapterURL string) ([]string, error) {
 		}
 	}
 
-	return core.EnsureImages(images)
+	validImgs, err := core.EnsureImages(images)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := ""
+	text := strings.TrimSpace(doc.Find(".info-top-chapter h2, div.panel-breadcrumb a:last-child, h1").First().Text())
+	if num := core.ExtractChapterNumber(text); num != "" {
+		chapterTitle = fmt.Sprintf("Ch %s", num)
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: validImgs,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (m *Manganato) GetImages(chapterURL string) ([]string, error) {
+	chap, err := m.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
+}
+
+// GetChapter extracts both the chapter title and image URLs
+func (m *Manganato) GetChapter(chapterURL string) (*core.Chapter, error) {
+	return m.getChapterInternal(chapterURL)
 }
 
 func init() {

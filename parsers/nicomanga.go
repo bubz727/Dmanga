@@ -2,6 +2,7 @@ package parsers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -33,7 +34,7 @@ func (n *NicoManga) Domains() []string {
 	}
 }
 
-func (n *NicoManga) GetImages(chapterURL string) ([]string, error) {
+func (n *NicoManga) getChapterInternal(chapterURL string) (*core.Chapter, error) {
 	parsedURL, err := url.Parse(chapterURL)
 	if err != nil {
 		return nil, err
@@ -48,6 +49,8 @@ func (n *NicoManga) GetImages(chapterURL string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var images []string
 
 	// 1. PRIMARY STRATEGY: Decode Next.js chaotic_payload stream
 	if matches := nextFRegex.FindAllStringSubmatch(rawHTML, -1); len(matches) > 0 {
@@ -87,7 +90,8 @@ func (n *NicoManga) GetImages(chapterURL string) ([]string, error) {
 						}
 					}
 					if len(cleaned) > 0 {
-						return core.EnsureImages(cleaned)
+						images = cleaned
+						break
 					}
 				}
 			}
@@ -95,7 +99,7 @@ func (n *NicoManga) GetImages(chapterURL string) ([]string, error) {
 	}
 
 	// 2. FALLBACK STRATEGY: Extract from DOM elements if server renders static markup
-	var images []string
+	if len(images) == 0 {
 	seen := make(map[string]bool)
 
 	selectors := []string{
@@ -129,8 +133,37 @@ func (n *NicoManga) GetImages(chapterURL string) ([]string, error) {
 			break
 		}
 	}
+	}
 
-	return core.EnsureImages(images)
+	validImgs, err := core.EnsureImages(images)
+	if err != nil {
+		return nil, err
+	}
+
+	chapterTitle := ""
+	text := strings.TrimSpace(doc.Find(".breadcrumb-navigation [class*='breadcrumb-item'], [class*='breadcrumb-item']").Last().Text())
+	if num := core.ExtractChapterNumber(text); num != "" {
+		chapterTitle = fmt.Sprintf("Ch %s", num)
+	}
+
+	return &core.Chapter{
+		Title:  chapterTitle,
+		Images: validImgs,
+	}, nil
+}
+
+// GetImages implements core.Parser
+func (n *NicoManga) GetImages(chapterURL string) ([]string, error) {
+	chap, err := n.GetChapter(chapterURL)
+	if err != nil {
+		return nil, err
+	}
+	return chap.Images, nil
+}
+
+// GetChapter extracts both the chapter title and image URLs
+func (n *NicoManga) GetChapter(chapterURL string) (*core.Chapter, error) {
+	return n.getChapterInternal(chapterURL)
 }
 
 // decodeChaoticPayload decodes NicoManga's Unicode codePoint XOR cipher

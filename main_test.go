@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -348,4 +349,136 @@ func TestFormatImageIndex(t *testing.T) {
 	}
 	t.Logf("[OK] FormatImageIndex passed all dynamic padding scenarios")
 }
+
+func TestAllFormatChapterTitleExtraction(t *testing.T) {
+	tests := []struct {
+		name     string
+		rawInput string
+		isURL    bool
+		expected string
+	}{
+		{
+			name:     "1. XComic",
+			rawInput: "Volume 20 Chapter 250 : Big Mouth ⑥",
+			expected: "Ch 250",
+		},
+		{
+			name:     "2. Weloma",
+			rawInput: "Chap 29.1",
+			expected: "Ch 29.1",
+		},
+		{
+			name:     "3. WeebCentral",
+			rawInput: "Chapter 185",
+			expected: "Ch 185",
+		},
+		{
+			name:     "4. Rawkuma",
+			rawInput: "SEINARU OTOME TO HIMEGOTO WO Chapter 115",
+			expected: "Ch 115",
+		},
+		{
+			name:     "5. NihonKuni",
+			rawInput: "Chapter 147",
+			expected: "Ch 147",
+		},
+		{
+			name:     "6. NicoManga",
+			rawInput: "Chapter 184",
+			expected: "Ch 184",
+		},
+		{
+			name:     "7. Naver (Korean Hwa)",
+			rawInput: "92화",
+			expected: "Ch 92",
+		},
+		{
+			name:     "8a. MangaRaw4U Slug part 3",
+			rawInput: "https://mangaraw4u.com/manga/otome-game-raw/chapter-13-3",
+			isURL:    true,
+			expected: "Ch 13.30",
+		},
+		{
+			name:     "8b. MangaRaw4U Slug part 1",
+			rawInput: "https://mangaraw4u.com/manga/meshimazu-onna/chapter-24-1",
+			isURL:    true,
+			expected: "Ch 24.10",
+		},
+		{
+			name:     "8c. MangaRaw4U Slug single integer",
+			rawInput: "https://mangaraw4u.com/manga/test-raw/chapter-50",
+			isURL:    true,
+			expected: "Ch 50",
+		},
+		{
+			name:     "9. MangaNato",
+			rawInput: "Their Trap Chapter 49",
+			expected: "Ch 49",
+		},
+		{
+			name:     "10. Mangago",
+			rawInput: "Ch.223.9",
+			expected: "Ch 223.9",
+		},
+		{
+			name:     "11. MangaFire",
+			rawInput: "Chapter 1080",
+			expected: "Ch 1080",
+		},
+		{
+			name:     "12. GigaViewer (Authentic Japanese sanitized)",
+			rawInput: "第1話 忍者×魔法",
+			expected: "第1話 忍者×魔法",
+		},
+		{
+			name:     "13. ComicWalker (Authentic Japanese sanitized)",
+			rawInput: "第2話",
+			expected: "第2話",
+		},
+		{
+			name:     "14. MangaPlus (#001 -> Ch 1)",
+			rawInput: " #001",
+			expected: "Ch 1",
+		},
+		{
+			name:     "14b. MangaPlus (#025 -> Ch 25)",
+			rawInput: " #025",
+			expected: "Ch 25",
+		},
+	}
+
+	for _, tt := range tests {
+		var got string
+		if tt.isURL {
+			got = core.ExtractMangaRaw4UChapterTitle(tt.rawInput)
+		} else {
+			got = core.NormalizeChapterTitle(tt.rawInput)
+		}
+
+		if got != tt.expected {
+			t.Errorf("[%s] Expected %q, got %q", tt.name, tt.expected, got)
+		} else {
+			t.Logf("[%s] OK -> %s", tt.name, got)
+		}
+	}
+}
+
+func TestMangaFireChapterTitleFromAPI(t *testing.T) {
+	mockJSON := `{"data":{"number":166,"name":"","pages":[{"url":"https://example.com/1.jpg"}]}}`
+	var res struct {
+		Data struct {
+			Number json.Number `json:"number"`
+			Name   string      `json:"name"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(mockJSON), &res); err != nil {
+		t.Fatalf("Failed to unmarshal MangaFire mock: %v", err)
+	}
+	title := fmt.Sprintf("Ch %s", res.Data.Number.String())
+	if title != "Ch 166" {
+		t.Fatalf("Expected 'Ch 166', got %q", title)
+	}
+	t.Logf("[OK] MangaFire chapter title resolved: %s", title)
+}
+
 

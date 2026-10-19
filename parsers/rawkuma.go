@@ -29,6 +29,11 @@ func (r *Rawkuma) GetImages(chapterURL string) ([]string, error) {
 	return r.ExtractImages(chapterURL)
 }
 
+// GetChapter extracts both the chapter title and image URLs
+func (r *Rawkuma) GetChapter(chapterURL string) (*core.Chapter, error) {
+	return r.ExtractChapter(chapterURL)
+}
+
 func init() {
 	core.Register(NewRawkuma())
 }

@@ -37,17 +37,19 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser Parser) {
 			defer func() { <-guard }()
 
 			ext := GetFileExtension(imgURL)
-			baseName := fmt.Sprintf("%03d", index+1)
+			baseName := FormatImageIndex(index+1, total)
 
 			savedFileName, origName, w, h, err := DownloadFile(client, imgURL, targetDir, baseName, ext, host, parser)
+			idxStr := FormatImageIndex(index+1, total)
+			totStr := FormatImageIndex(total, total)
 			if err != nil {
-				fmt.Printf("[%02d/%02d] [FAILED] %s: %v\n", index+1, total, origName, err)
+				fmt.Printf("[%s/%s] [FAILED] %s: %v\n", idxStr, totStr, origName, err)
 			} else {
 				dimStr := ""
 				if w > 0 && h > 0 {
 					dimStr = fmt.Sprintf(" (%dx%d)", w, h)
 				}
-				fmt.Printf("[%02d/%02d] [OK] %s -> %s%s\n", index+1, total, origName, savedFileName, dimStr)
+				fmt.Printf("[%s/%s] [OK] %s -> %s%s\n", idxStr, totStr, origName, savedFileName, dimStr)
 			}
 		}(i, rawURL)
 	}

@@ -320,3 +320,32 @@ func TestToonzRSCExtraction(t *testing.T) {
 	}
 	t.Logf("[OK] Toonz RSC payload parsed: 3 images, Chapter 72")
 }
+
+func TestFormatImageIndex(t *testing.T) {
+	tests := []struct {
+		index    int
+		total    int
+		expected string
+	}{
+		{index: 1, total: 50, expected: "001"},
+		{index: 50, total: 50, expected: "050"},
+		{index: 1, total: 999, expected: "001"},
+		{index: 999, total: 999, expected: "999"},
+		{index: 1, total: 1000, expected: "0001"},
+		{index: 100, total: 1000, expected: "0100"},
+		{index: 1000, total: 1000, expected: "1000"},
+		{index: 1, total: 1500, expected: "0001"},
+		{index: 1500, total: 1500, expected: "1500"},
+		{index: 7, total: 10000, expected: "00007"},
+		{index: 10000, total: 10000, expected: "10000"},
+	}
+
+	for _, tt := range tests {
+		got := core.FormatImageIndex(tt.index, tt.total)
+		if got != tt.expected {
+			t.Errorf("FormatImageIndex(%d, %d) = %q, expected %q", tt.index, tt.total, got, tt.expected)
+		}
+	}
+	t.Logf("[OK] FormatImageIndex passed all dynamic padding scenarios")
+}
+

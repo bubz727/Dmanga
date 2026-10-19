@@ -50,3 +50,14 @@ func NormalizeChapterTitle(rawTitle string) string {
 
 	return SanitizeFolderName(rawTitle)
 }
+
+// FormatImageIndex returns a zero-padded index string based on total count (minimum 3 digits)
+func FormatImageIndex(index, total int) string {
+	digits := 3
+	for n := total; n >= 1000; n /= 10 {
+		digits++
+	}
+	format := fmt.Sprintf("%%0%dd", digits)
+	return fmt.Sprintf(format, index)
+}
+

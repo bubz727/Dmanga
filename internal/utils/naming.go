@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	chapterKeywordsRegex      = regexp.MustCompile(`(?i)(?:chapter|chap|ch|c|episode|ep)[.\s-_:#]*([0-9]+(?:\.[0-9]+)?)`)
+	chapterKeywordsRegex      = regexp.MustCompile(`(?i)\b(?:chapter|chap|ch|c|episode|ep)[.\s-_:#]*([0-9]+(?:\.[0-9]+)?)`)
 	koreanHwaRegex            = regexp.MustCompile(`([0-9]+(?:\.[0-9]+)?)\s*화`)
 	hashChapterRegex          = regexp.MustCompile(`(?i)#\s*([0-9]+(?:\.[0-9]+)?)`)
 	mangaraw4uChapterURLRegex = regexp.MustCompile(`(?i)chapter-([0-9]+)(?:-([0-9]+))?`)

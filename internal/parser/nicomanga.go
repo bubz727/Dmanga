@@ -14,7 +14,12 @@ import (
 )
 
 var (
-	nextFRegex = regexp.MustCompile(`self\.__next_f\.push\(\[1,\s*"([\s\S]*?)"\]\)`)
+	nextFRegex              = regexp.MustCompile(`self\.__next_f\.push\(\[1,\s*"([\s\S]*?)"\]\)`)
+	nicoBreadcrumbItemRegex = regexp.MustCompile(`(?i)breadcrumb-item[^>]*>([^<]*(?:chapter|chap|ch|c)[.\s-_:#]*[0-9]+(?:\.[0-9]+)?[^<]*)`)
+	nicoBreadcrumbNavRegex  = regexp.MustCompile(`(?i)breadcrumb-navigation[\s\S]*?(?:chapter|chap|ch|c)[.\s-_:#]*([0-9]+(?:\.[0-9]+)?)`)
+	nicoNextChildrenRegex   = regexp.MustCompile(`(?i)"children"\s*:\s*"[^"]*(?:chapter|chap|ch)[.\s-_:#]*([0-9]+(?:\.[0-9]+)?)[^"]*"`)
+	nicoHTMLTitleRegex      = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
+	nicoDigitsOnlyRegex     = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)?$`)
 )
 
 type NicoManga struct{}
@@ -142,16 +147,89 @@ func (n *NicoManga) getChapterInternal(chapterURL string) (*core.Chapter, error)
 		return nil, err
 	}
 
-	chapterTitle := ""
-	text := strings.TrimSpace(doc.Find(".breadcrumb-navigation [class*='breadcrumb-item'], [class*='breadcrumb-item']").Last().Text())
-	if num := utils.ExtractChapterNumber(text); num != "" {
-		chapterTitle = fmt.Sprintf("Ch %s", num)
-	}
+	chapterTitle := ExtractNicoMangaChapterTitle(doc, rawHTML, chapterURL)
 
 	return &core.Chapter{
 		Title:  chapterTitle,
 		Images: validImgs,
 	}, nil
+}
+
+// ExtractNicoMangaChapterTitle extracts the chapter title from the NicoManga document or raw HTML
+func ExtractNicoMangaChapterTitle(doc *goquery.Document, rawHTML string, chapterURL string) string {
+	// 1. Search DOM breadcrumb elements
+	if doc != nil {
+		selectors := []string{
+			".breadcrumb-navigation [class*='breadcrumb-item']",
+			"[class*='breadcrumb-navigation'] [class*='breadcrumb-item']",
+			".breadcrumb-navigation span",
+			".breadcrumb-navigation li",
+			".breadcrumb-navigation div",
+			"[class*='breadcrumb-item']",
+			".breadcrumb-item",
+		}
+
+		for _, sel := range selectors {
+			items := doc.Find(sel)
+			// Traverse backwards from the last item since chapter is at the end of the breadcrumbs
+			for i := items.Length() - 1; i >= 0; i-- {
+				text := strings.TrimSpace(items.Eq(i).Text())
+				if num := utils.ExtractChapterNumber(text); num != "" {
+					return fmt.Sprintf("Ch %s", num)
+				}
+			}
+		}
+	}
+
+	// 2. Search raw HTML / Next.js streamed chunks with regex
+	if rawHTML != "" {
+		patterns := []*regexp.Regexp{
+			nicoBreadcrumbItemRegex,
+			nicoBreadcrumbNavRegex,
+			nicoNextChildrenRegex,
+		}
+
+		for _, re := range patterns {
+			if m := re.FindStringSubmatch(rawHTML); len(m) > 1 {
+				if num := utils.ExtractChapterNumber(m[1]); num != "" {
+					return fmt.Sprintf("Ch %s", num)
+				}
+				if nicoDigitsOnlyRegex.MatchString(m[1]) {
+					return fmt.Sprintf("Ch %s", m[1])
+				}
+			}
+		}
+
+		// Fallback to title tag in rawHTML
+		if m := nicoHTMLTitleRegex.FindStringSubmatch(rawHTML); len(m) > 1 {
+			if num := utils.ExtractChapterNumber(m[1]); num != "" {
+				return fmt.Sprintf("Ch %s", num)
+			}
+		}
+	}
+
+	// 3. Fallback to DOM <title> or <meta property="og:title">
+	if doc != nil {
+		if titleText := strings.TrimSpace(doc.Find("title").Text()); titleText != "" {
+			if num := utils.ExtractChapterNumber(titleText); num != "" {
+				return fmt.Sprintf("Ch %s", num)
+			}
+		}
+		if metaTitle, exists := doc.Find("meta[property='og:title']").Attr("content"); exists && strings.TrimSpace(metaTitle) != "" {
+			if num := utils.ExtractChapterNumber(metaTitle); num != "" {
+				return fmt.Sprintf("Ch %s", num)
+			}
+		}
+	}
+
+	// 4. Fallback: extract from chapter URL
+	if chapterURL != "" {
+		if num := utils.ExtractChapterNumber(chapterURL); num != "" {
+			return fmt.Sprintf("Ch %s", num)
+		}
+	}
+
+	return ""
 }
 
 // GetImages implements core.Parser

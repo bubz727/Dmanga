@@ -1,0 +1,14 @@
+{
+  "code": 200,
+  "data": {
+    "chapter": {
+      "chapter_number": 77,
+      "number": 77,
+      "name": "77",
+      "pages": [
+        "https://example.com/1.jpg",
+        "https://example.com/2.jpg"
+      ]
+    }
+  }
+}

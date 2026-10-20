@@ -1,4 +1,4 @@
-module manga-downloader
+module dmanga
 
 go 1.26.0
 

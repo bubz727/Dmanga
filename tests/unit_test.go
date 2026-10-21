@@ -11,6 +11,7 @@ import (
 	"dmanga/internal/cli"
 	"dmanga/internal/downloader"
 	"dmanga/internal/image"
+	"dmanga/internal/image/descramble"
 	"dmanga/internal/parser"
 	"dmanga/internal/utils"
 )
@@ -610,5 +611,35 @@ func TestProgressBarAndMetrics(t *testing.T) {
 	barFull := downloader.RenderProgressBar(10, 10, 10)
 	if barFull != "[==========]" {
 		t.Errorf("Expected '[==========]', got %q", barFull)
+	}
+}
+
+func TestDecryptMangaPlus(t *testing.T) {
+	keyHex := "aabbccdd"
+	// Create original plaintext
+	orig := []byte("Hello MangaPlus!")
+	key := []byte{0xaa, 0xbb, 0xcc, 0xdd}
+
+	// Encrypt with XOR
+	enc := make([]byte, len(orig))
+	for i := 0; i < len(orig); i++ {
+		enc[i] = orig[i] ^ key[i%len(key)]
+	}
+
+	// Decrypt using DecryptMangaPlus
+	urlWithKey := "https://jumpg-assets.tokyo-cdn.com/page.jpg#encryptionKey=" + keyHex
+	dec, err := descramble.DecryptMangaPlus(enc, urlWithKey)
+	if err != nil {
+		t.Fatalf("DecryptMangaPlus failed: %v", err)
+	}
+	if string(dec) != string(orig) {
+		t.Fatalf("Expected %q, got %q", orig, dec)
+	}
+
+	// URL without key should return unmodified bytes
+	urlWithoutKey := "https://jumpg-assets.tokyo-cdn.com/page.jpg"
+	unmod, err := descramble.DecryptMangaPlus(orig, urlWithoutKey)
+	if err != nil || string(unmod) != string(orig) {
+		t.Fatalf("Expected unmodified bytes when no key is present")
 	}
 }

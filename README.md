@@ -10,27 +10,27 @@ A lightweight, high-performance command-line manga, comic, and webtoon downloade
 
 Dmanga currently supports **80 domains** across **19 specialized parsers**:
 
-| Parser | Domains Supported | Architecture / Notes |
-| :--- | :--- | :--- |
-| **GigaViewer** | 25 domains (`comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `sunday-webry.com`, `kuragebunch.com`, `comic-earthstar.com`, `comic-gardo.com`, `comic-zenon.com`, etc.) | Official publisher reader, authentic Japanese chapter naming |
-| **Comici** | 25 domains (`younganimal.com`, `championcross.jp`, `bigcomics.jp`, `hanayume.com`, `youngchampion.jp`, `comicpash.jp`, `comicride.jp`, etc.) | 4x4 image tile de-scrambler enabled |
-| **Comic-Walker** | `comic-walker.com`, `www.comic-walker.com` | Official Kadokawa platform, API metadata parsing |
-| **MANGA Plus** | `mangaplus.shueisha.co.jp` | Official Shueisha platform, high-resolution streams |
-| **Naver Comic** | `comic.naver.com`, `m.comic.naver.com` | Korean webtoon reader with Korean Hwa extraction |
-| **MangaFire** | `mangafire.to` | Custom XOR / VRF API signer |
-| **MangaDex** | `mangadex.org` | MangaDex v5 REST API integration |
-| **Mangago** | `mangago.me` | AES decryption & HTML unpacker |
-| **Manganato** | `manganato.gg`, `www.manganato.gg` | Standard scan reader |
-| **Asura Scans** | `asurascans.com` | Astro / Next.js props parser |
-| **Toonz & Toonx** | `toonz.to`, `toonx.to` | Next.js RSC (React Server Components) payload parser |
-| **Weeb Central** | `weebcentral.com` | HTMX reader with full-chapter image extraction |
-| **Rawkuma** | `rawkuma.net` | Natsu theme reader engine |
-| **MangaBall** | `mangaball.com`, `mangaball.net` | Next.js API & custom chapter detail parsing |
-| **MangaRaw4U** | `mangaraw4u.com`, `www.mangaraw4u.com` | Multi-format chapter slug parser |
-| **NicoManga** | `nicomanga.com`, `nicomanga.net`, and `www.*` | RAW archive reader |
-| **Nihonkuni** | `nihonkuni.com`, `www.nihonkuni.com` | RAW archive reader |
-| **Weloma** | `weloma.net`, `weloma.art`, `www.weloma.net` | RAW archive reader |
-| **XComic** | `xcomic.me`, `xcomic.net` | RAW archive reader |
+| Parser | Domains Supported |
+| :--- | :--- |
+| **GigaViewer** | 25 domains (`comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `sunday-webry.com`, `kuragebunch.com`, `comic-earthstar.com`, `comic-gardo.com`, `comic-zenon.com`, etc.) |
+| **Comici** | 25 domains (`younganimal.com`, `championcross.jp`, `bigcomics.jp`, `hanayume.com`, `youngchampion.jp`, `comicpash.jp`, `comicride.jp`, etc.) |
+| **Comic-Walker** | `comic-walker.com`, `www.comic-walker.com` |
+| **MANGA Plus** | `mangaplus.shueisha.co.jp` |
+| **Naver Comic** | `comic.naver.com`, `m.comic.naver.com` |
+| **MangaFire** | `mangafire.to` |
+| **MangaDex** | `mangadex.org` |
+| **Mangago** | `mangago.me` |
+| **Manganato** | `manganato.gg`, `www.manganato.gg` |
+| **Asura Scans** | `asurascans.com` |
+| **Toonz & Toonx** | `toonz.to`, `toonx.to` |
+| **Weeb Central** | `weebcentral.com` |
+| **Rawkuma** | `rawkuma.net` |
+| **MangaBall** | `mangaball.com`, `mangaball.net` |
+| **MangaRaw4U** | `mangaraw4u.com`, `www.mangaraw4u.com` |
+| **NicoManga** | `nicomanga.com`, `nicomanga.net`, and `www.*` |
+| **Nihonkuni** | `nihonkuni.com`, `www.nihonkuni.com` |
+| **Weloma** | `weloma.net`, `weloma.art`, `www.weloma.net` |
+| **XComic** | `xcomic.me`, `xcomic.net` |
 
 Run `Dmanga -l` to view all supported platforms in your terminal.
 

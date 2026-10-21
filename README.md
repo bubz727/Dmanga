@@ -130,7 +130,6 @@ go test -v ./tests/integration/... -args "https://comic-days.com/episode/3270296
 - [Architecture Overview](docs/ARCHITECTURE.md): Modular package design and unidirectional dependency graph.
 - [Parser Implementation Guide](docs/PARSER_GUIDE.md): Step-by-step instructions for adding new parsers.
 - [Contributing Guidelines](docs/CONTRIBUTING.md): Code standards and pull request workflows.
-- [Research Notes](research/README.md): Upstream parser research and metadata dumps.
 
 ---
 

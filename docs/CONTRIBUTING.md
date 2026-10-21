@@ -22,7 +22,6 @@ Dmanga/
 │   ├── image/                # Format normalizer & tile de-scrambling (Comici, Comic-Walker)
 │   ├── cli/                  # CLI arguments, help banner, diagnostic suite & table formatter
 │   └── utils/                # Pure helper functions (URL sanitizer, path naming, file extensions)
-├── research/                 # Upstream reference implementations & scraping notes
 ├── tests/                    # Integration tests & offline test fixtures
 ├── docs/                     # Technical documentation & contributing guides
 └── .cf_cookies.json          # Cached Cloudflare session cookies per domain

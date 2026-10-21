@@ -71,6 +71,13 @@ Dmanga https://mangafire.to/title/ro8ro-all-class-awakening-god-slayer/chapter/9
 
 Images are downloaded directly into the current directory as `001.jpg`, `002.jpg`, etc.
 
+### Single Chapter in Subfolder (`-f`, `--folder`)
+To download a single chapter into its own dedicated subfolder (named after the chapter, e.g., `Ch 185` or authentic Japanese title):
+
+```cmd
+Dmanga -f https://weebcentral.com/chapters/01M5DR493EHYY89H1S8B8GY0EG
+```
+
 ### Multi-Link Batch Download
 Download multiple chapters simultaneously by separating URLs with spaces or pipe (`|`) characters:
 

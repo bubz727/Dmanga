@@ -57,26 +57,37 @@ func Run(args []string) {
 	}
 	fmt.Printf("[*] Save directory: %s\n\n", targetDir)
 
+	hasFolderFlag := HasFolderFlag(args...)
+
 	rawInput := ""
 	if len(args) > 1 {
 		rawInput = strings.Join(args[1:], " ")
-	} else {
-		fmt.Print("Enter Chapter URL: ")
-		scanner := bufio.NewScanner(os.Stdin)
-		if scanner.Scan() {
-			rawInput = strings.TrimSpace(scanner.Text())
-		}
 	}
 
 	urls := ParseInputURLs(rawInput)
+	if len(urls) == 0 {
+		fmt.Print("Enter Chapter URL: ")
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			promptInput := strings.TrimSpace(scanner.Text())
+			if HasFolderFlag(promptInput) {
+				hasFolderFlag = true
+			}
+			urls = ParseInputURLs(promptInput)
+		}
+	}
+
 	if len(urls) == 0 {
 		fmt.Println("[!] No valid chapter URL provided.")
 		return
 	}
 
 	isMulti := len(urls) > 1
+	createFolder := isMulti || hasFolderFlag
 	if isMulti {
 		fmt.Printf("[+] Multi-Link Mode Detected (%d Chapters)\n\n", len(urls))
+	} else if hasFolderFlag {
+		fmt.Printf("[+] Subfolder Mode Enabled (-f)\n\n")
 	}
 
 	usedFolders := make(map[string]int)
@@ -122,7 +133,7 @@ func Run(args []string) {
 
 		// Determine destination folder
 		saveDir := targetDir
-		if isMulti {
+		if createFolder {
 			folderName := chap.Title
 			if folderName == "" {
 				folderName = fmt.Sprintf("Ch %d", idx+1)

@@ -17,3 +17,16 @@ func ParseInputURLs(rawInput string) []string {
 	}
 	return urls
 }
+
+// HasFolderFlag checks if -f or --folder flag is present in any slice of strings or arguments
+func HasFolderFlag(items ...string) bool {
+	for _, item := range items {
+		for _, tok := range strings.Fields(item) {
+			lower := strings.ToLower(strings.TrimSpace(tok))
+			if lower == "-f" || lower == "--folder" {
+				return true
+			}
+		}
+	}
+	return false
+}

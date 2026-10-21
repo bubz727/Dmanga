@@ -55,6 +55,34 @@ func TestParseInputURLs(t *testing.T) {
 	if len(urls3) != 3 {
 		t.Fatalf("Expected 3 valid URLs, got %d", len(urls3))
 	}
+
+	// 4. Input with -f flag
+	input4 := "-f https://weebcentral.com/chapters/01M5DR493EHYY89H1S8B8GY0EG"
+	urls4 := cli.ParseInputURLs(input4)
+	if len(urls4) != 1 || urls4[0] != "https://weebcentral.com/chapters/01M5DR493EHYY89H1S8B8GY0EG" {
+		t.Fatalf("Expected 1 URL without flag, got %v", urls4)
+	}
+}
+
+func TestHasFolderFlag(t *testing.T) {
+	if !cli.HasFolderFlag("-f", "https://example.com/ch-1") {
+		t.Errorf("Expected HasFolderFlag to be true for '-f'")
+	}
+	if !cli.HasFolderFlag("https://example.com/ch-1", "-f") {
+		t.Errorf("Expected HasFolderFlag to be true for trailing '-f'")
+	}
+	if !cli.HasFolderFlag("--folder", "https://example.com/ch-1") {
+		t.Errorf("Expected HasFolderFlag to be true for '--folder'")
+	}
+	if !cli.HasFolderFlag("-f https://example.com/ch-1") {
+		t.Errorf("Expected HasFolderFlag to be true for combined string")
+	}
+	if cli.HasFolderFlag("https://example.com/ch-1") {
+		t.Errorf("Expected HasFolderFlag to be false without flag")
+	}
+	if cli.HasFolderFlag("https://example.com/ch-f/1") {
+		t.Errorf("Expected HasFolderFlag to be false for URL containing 'ch-f'")
+	}
 }
 
 func TestSanitizeFolderName(t *testing.T) {

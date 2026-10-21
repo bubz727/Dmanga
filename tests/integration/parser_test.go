@@ -34,9 +34,9 @@ func TestMangaParser(t *testing.T) {
 		t.Skip("Skip: Provide a chapter URL to test. Example: go test ./tests/integration/... -args https://comic-days.com/episode/3270296674374344033")
 	}
 
-	t.Logf("==================================================")
+	t.Log("")
 	t.Logf("PARSER DIAGNOSTIC FOR: %s", targetURL)
-	t.Logf("==================================================")
+	t.Log("")
 
 	parsed, err := url.Parse(targetURL)
 	if err != nil || parsed.Host == "" {
@@ -83,6 +83,6 @@ func TestMangaParser(t *testing.T) {
 
 	sample := chap.Images[0]
 	t.Logf("[OK 4/4] Sample Image URL : %s", sample)
-	t.Logf("==================================================")
+	t.Log("")
 	t.Logf("[SUCCESS] Parser '%s' IS 100%% FUNCTIONAL!", p.Name())
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"dmanga/internal/cli"
+	"dmanga/internal/downloader"
 	"dmanga/internal/image"
 	"dmanga/internal/parser"
 	"dmanga/internal/utils"
@@ -546,5 +547,40 @@ func TestNicoMangaChapterTitleExtraction(t *testing.T) {
 		} else {
 			t.Logf("[%s] OK -> %s", tt.name, got)
 		}
+	}
+}
+
+func TestProgressBarAndMetrics(t *testing.T) {
+	// 1. Test FormatBytes
+	if s := downloader.FormatBytes(500); s != "500 B" {
+		t.Errorf("Expected '500 B', got %q", s)
+	}
+	if s := downloader.FormatBytes(1024); s != "1.0 KB" {
+		t.Errorf("Expected '1.0 KB', got %q", s)
+	}
+	if s := downloader.FormatBytes(1572864); s != "1.5 MB" {
+		t.Errorf("Expected '1.5 MB', got %q", s)
+	}
+
+	// 2. Test FormatSpeed
+	if s := downloader.FormatSpeed(0); s != "0 B/s" {
+		t.Errorf("Expected '0 B/s', got %q", s)
+	}
+	if s := downloader.FormatSpeed(5242880); s != "5.0 MB/s" {
+		t.Errorf("Expected '5.0 MB/s', got %q", s)
+	}
+
+	// 3. Test RenderProgressBar
+	bar0 := downloader.RenderProgressBar(0, 10, 10)
+	if bar0 != "[          ]" {
+		t.Errorf("Expected '[          ]', got %q", bar0)
+	}
+	barHalf := downloader.RenderProgressBar(5, 10, 10)
+	if barHalf != "[====>     ]" {
+		t.Errorf("Expected '[====>     ]', got %q", barHalf)
+	}
+	barFull := downloader.RenderProgressBar(10, 10, 10)
+	if barFull != "[==========]" {
+		t.Errorf("Expected '[==========]', got %q", barFull)
 	}
 }

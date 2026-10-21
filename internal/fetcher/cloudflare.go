@@ -176,12 +176,11 @@ func SolveCloudflare(targetURL string) (string, error) {
 	}()
 
 	fmt.Println()
-	fmt.Println("==================================================")
 	fmt.Println("[!] CLOUDFLARE CHALLENGE DETECTED!")
 	fmt.Printf("[*] Domain: %s\n", host)
 	fmt.Println("[*] Opening browser window to complete verification...")
 	fmt.Println("[*] Please complete the verification checkbox on screen.")
-	fmt.Println("==================================================")
+	fmt.Println()
 
 	cmd := exec.Command(browserPath,
 		fmt.Sprintf("--remote-debugging-port=%d", port),
@@ -365,16 +364,15 @@ func SolveCloudflare(targetURL string) (string, error) {
 	}
 
 	if !solved {
-		fmt.Println("==================================================")
+		fmt.Println()
 		fmt.Println("[X] Cloudflare verification timed out!")
 		fmt.Println("[!] Failed to verify within time limit.")
-		fmt.Println("==================================================")
+		fmt.Println()
 		return "", errors.New("timed out waiting for Cloudflare challenge completion")
 	}
 
 	fmt.Println("[OK] Cloudflare verification completed successfully!")
 	fmt.Println("[OK] Session cookies saved. Resuming download...")
-	fmt.Println("==================================================")
 	fmt.Println()
 
 	return rawHTML, nil

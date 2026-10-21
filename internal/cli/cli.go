@@ -48,10 +48,7 @@ func Run(args []string) {
 	}
 
 	// Mode 4: NORMAL DOWNLOAD MODE
-	fmt.Println("========================================")
-	fmt.Println("                 DMANGA                 ")
-	fmt.Println("       CLI MANGA/COMIC DOWNLOADER       ")
-	fmt.Println("========================================")
+	fmt.Println()
 
 	targetDir, err := os.Getwd()
 	if err != nil {
@@ -64,7 +61,7 @@ func Run(args []string) {
 	if len(args) > 1 {
 		rawInput = strings.Join(args[1:], " ")
 	} else {
-		fmt.Print("Enter Chapter URL (supports multiple URLs separated by space or |): ")
+		fmt.Print("Enter Chapter URL: ")
 		scanner := bufio.NewScanner(os.Stdin)
 		if scanner.Scan() {
 			rawInput = strings.TrimSpace(scanner.Text())
@@ -98,7 +95,7 @@ func Run(args []string) {
 		}
 
 		if isMulti {
-			fmt.Printf("==================================================\n")
+			fmt.Println()
 			fmt.Printf("[%d/%d] Processing Chapter: %s\n", idx+1, len(urls), chapterURL)
 			fmt.Printf("[+] Parser: %s\n", p.Name())
 		} else {
@@ -153,13 +150,12 @@ func Run(args []string) {
 		if isMulti {
 			fmt.Printf("\n[OK] [%d/%d] Chapter download complete!\n\n", idx+1, len(urls))
 		} else {
-			fmt.Println("\n[OK] Complete! All images saved successfully.")
+			fmt.Println("\n[OK] All images saved successfully.")
 		}
 	}
 
 	if isMulti {
-		fmt.Println("==================================================")
-		fmt.Println("[OK] ALL CHAPTER DOWNLOADS FINISHED!")
-		fmt.Println("==================================================")
+		fmt.Println()
+		fmt.Println("Downloads Finished.")
 	}
 }

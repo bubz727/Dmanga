@@ -20,9 +20,7 @@ func ShowSupportedParsers() {
 		totalDomains += len(p.Domains())
 	}
 
-	fmt.Println("==================================================")
-	fmt.Println("            SUPPORTED MANGA PARSERS               ")
-	fmt.Println("==================================================")
+	fmt.Println()
 	for idx, p := range all {
 		domains := p.Domains()
 		sort.Strings(domains)
@@ -48,15 +46,9 @@ func ShowSupportedParsers() {
 		}
 		fmt.Println()
 	}
-	fmt.Println("--------------------------------------------------")
+	fmt.Println()
 	fmt.Printf("Total: %d Parsers, %d Supported Domains\n", len(all), totalDomains)
-	fmt.Println("==================================================")
-	fmt.Println("Usage Commands:")
-	fmt.Println("  Dmanga <chapter-url>                  Download chapter")
-	fmt.Println("  Dmanga <url-1> <url-2>                Multi-chapter download")
-	fmt.Println("  Dmanga -t <chapter-url>               Run parser diagnostics")
-	fmt.Println("  Dmanga -l                             List all supported parsers")
-	fmt.Println("==================================================")
+	fmt.Println()
 }
 
 func pluralS(count int) string {

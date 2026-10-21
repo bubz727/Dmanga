@@ -22,7 +22,7 @@ import (
 )
 
 // DownloadFile downloads a single image, processes it (descrambling/format conversion), and saves it to disk
-func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt, host string, parser core.Parser) (string, string, int, int, error) {
+func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt, host string, parser core.Parser) (string, string, int, int, int64, error) {
 	fetchURL := fileURL
 	if idx := strings.Index(fetchURL, "#"); idx != -1 {
 		fetchURL = fetchURL[:idx]
@@ -46,7 +46,7 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 
 		req, err := http.NewRequest("GET", fetchURL, nil)
 		if err != nil {
-			return "", origName, 0, 0, err
+			return "", origName, 0, 0, 0, err
 		}
 
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
@@ -59,7 +59,7 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 				time.Sleep(2 * time.Second)
 				continue
 			}
-			return "", origName, 0, 0, err
+			return "", origName, 0, 0, 0, err
 		}
 
 		// Handle Rate Limiting (HTTP 429)
@@ -79,7 +79,7 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 				time.Sleep(3 * time.Second)
 				continue
 			}
-			return "", origName, 0, 0, fmt.Errorf("status code %d", resp.StatusCode)
+			return "", origName, 0, 0, 0, fmt.Errorf("status code %d", resp.StatusCode)
 		}
 
 		bodyBytes, err = io.ReadAll(resp.Body)
@@ -89,14 +89,14 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			return "", origName, 0, 0, err
+			return "", origName, 0, 0, 0, err
 		}
 
 		// Successfully read body
 		break
 	}
 	if err != nil {
-		return "", origName, 0, 0, err
+		return "", origName, 0, 0, 0, err
 	}
 
 	// 1. Process image with ImageProcessor (e.g. descrambler) if supported
@@ -121,5 +121,5 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 	}
 
 	fileName, err := WriteImageFile(targetDir, baseName, defaultExt, bodyBytes)
-	return fileName, origName, width, height, err
+	return fileName, origName, width, height, int64(len(bodyBytes)), err
 }

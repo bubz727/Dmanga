@@ -15,9 +15,8 @@ import (
 
 // RunDiagnosticTest performs diagnostics on a URL without downloading images
 func RunDiagnosticTest(rawURL string) {
-	fmt.Println("==================================================")
+	fmt.Println()
 	fmt.Printf("PARSER DIAGNOSTIC: %s\n", rawURL)
-	fmt.Println("==================================================")
 
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Host == "" {
@@ -90,6 +89,6 @@ func RunDiagnosticTest(rawURL string) {
 		sampleURL = sampleURL[:idx]
 	}
 	fmt.Printf("[OK 4/4] Sample Image URL  : %s\n", sampleURL)
-	fmt.Println("==================================================")
-	fmt.Printf("[SUCCESS] Parser '%s' IS FULLY FUNCTIONAL!\n", p.Name())
+	fmt.Println()
+	fmt.Printf("[SUCCESS] Parser '%s'\n", p.Name())
 }

@@ -86,7 +86,7 @@ Dmanga "https://example.com/chapter-1 | https://example.com/chapter-2"
 
 In multi-link mode, each chapter is automatically saved in its own organized subfolder (e.g., `Ch 1`, `Ch 2`, or authentic Japanese title `第1話`).
 
-### Interactive Prompt Mode
+### Prompt Mode
 Run `Dmanga` without arguments:
 
 ```cmd

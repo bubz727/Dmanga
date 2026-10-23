@@ -2,12 +2,12 @@ package downloader
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"dmanga/internal/core"
+	"dmanga/internal/fetcher"
 	"dmanga/internal/utils"
 )
 
@@ -62,7 +62,7 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser)
 	guard := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := fetcher.ImageClient()
 
 	var mu sync.Mutex
 	completedCount := 0

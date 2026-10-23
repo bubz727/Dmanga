@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	RepoOwner       = "bubz727"
-	RepoName        = "Dmanga"
-	ReleaseAPIURL   = "https://api.github.com/repos/bubz727/Dmanga/releases/latest"
-	CacheTTL        = 24 * time.Hour
+	RepoOwner         = "bubz727"
+	RepoName          = "Dmanga"
+	ReleaseAPIURL     = "https://api.github.com/repos/bubz727/Dmanga/releases/latest"
+	CacheTTL          = 24 * time.Hour
 	HTTPClientTimeout = 1500 * time.Millisecond
 )
 

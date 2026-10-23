@@ -13,7 +13,7 @@ import (
 
 // FetchHTML downloads a webpage and returns both the goquery Document and raw HTML string
 func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Document, string, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := HTMLClient()
 
 	parsed, err := url.Parse(pageURL)
 	if err != nil {

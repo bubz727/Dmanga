@@ -80,6 +80,7 @@ func GetSessionStore() *SessionStore {
 }
 
 func findCookiePath() string {
+	// 1. Local override in current working directory if already exists
 	candidates := []string{
 		".cf_cookies.json",
 		"dmanga_cookies.json",
@@ -89,9 +90,19 @@ func findCookiePath() string {
 			return c
 		}
 	}
-	if home, err := os.UserHomeDir(); err == nil {
+
+	// 2. Centralized User Config directory (~/.config/dmanga/cookies.json on Linux, %APPDATA%\dmanga\cookies.json on Windows)
+	if cfgDir, err := os.UserConfigDir(); err == nil && cfgDir != "" {
+		target := filepath.Join(cfgDir, "dmanga", "cookies.json")
+		_ = os.MkdirAll(filepath.Dir(target), 0755)
+		return target
+	}
+
+	// 3. Fallback to User Home Dir
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		return filepath.Join(home, ".dmanga_cookies.json")
 	}
+
 	return ".cf_cookies.json"
 }
 
@@ -116,6 +127,9 @@ func (s *SessionStore) save() {
 	data, err := json.MarshalIndent(s.sessions, "", "  ")
 	if err != nil {
 		return
+	}
+	if dir := filepath.Dir(s.filePath); dir != "" && dir != "." {
+		_ = os.MkdirAll(dir, 0755)
 	}
 	_ = os.WriteFile(s.filePath, data, 0600)
 }

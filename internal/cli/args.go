@@ -30,3 +30,16 @@ func HasFolderFlag(items ...string) bool {
 	}
 	return false
 }
+
+// HasNoUpdateCheckFlag checks if --no-update-check is present in arguments
+func HasNoUpdateCheckFlag(items ...string) bool {
+	for _, item := range items {
+		for _, tok := range strings.Fields(item) {
+			lower := strings.ToLower(strings.TrimSpace(tok))
+			if lower == "--no-update-check" || lower == "-no-update-check" {
+				return true
+			}
+		}
+	}
+	return false
+}

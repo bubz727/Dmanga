@@ -36,7 +36,13 @@ func Run(args []string) {
 			return
 		}
 
-		// Mode 3: DIAGNOSTIC TEST MODE (-t or --test)
+		// Mode 4: CHECK UPDATE (--check-update, check-update)
+		if arg == "--check-update" || arg == "check-update" {
+			CheckUpdateExplicit()
+			return
+		}
+
+		// Mode 5: DIAGNOSTIC TEST MODE (-t or --test)
 		if arg == "-t" || arg == "--test" {
 			testURL := ""
 			if len(args) >= 3 {
@@ -64,6 +70,8 @@ func Run(args []string) {
 	fmt.Printf("[*] Save directory: %s\n\n", targetDir)
 
 	hasFolderFlag := HasFolderFlag(args...)
+	noCheck := HasNoUpdateCheckFlag(args...)
+	updateCh := StartPassiveUpdateCheck(noCheck)
 
 	rawInput := ""
 	if len(args) > 1 {
@@ -78,6 +86,9 @@ func Run(args []string) {
 			promptInput := strings.TrimSpace(scanner.Text())
 			if HasFolderFlag(promptInput) {
 				hasFolderFlag = true
+			}
+			if HasNoUpdateCheckFlag(promptInput) {
+				noCheck = true
 			}
 			urls = ParseInputURLs(promptInput)
 		}
@@ -174,5 +185,12 @@ func Run(args []string) {
 	if isMulti {
 		fmt.Println()
 		fmt.Println("Downloads Finished.")
+	}
+
+	// Display update banner if passive check completed before exit
+	select {
+	case info := <-updateCh:
+		PrintUpdateBanner(info)
+	default:
 	}
 }

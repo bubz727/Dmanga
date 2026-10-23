@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -48,36 +49,61 @@ func IsCloudflareChallenge(statusCode int, body string, header http.Header) bool
 	return false
 }
 
-// findBrowserPath locates an installed browser executable on Windows (Edge or Chrome)
+// findBrowserPath locates an installed browser executable on Windows and Linux (Brave, Chrome, Chromium, Edge)
 func findBrowserPath() (string, error) {
-	candidates := []string{
-		`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
-		`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
-		`C:\Program Files\Google\Chrome\Application\chrome.exe`,
-		`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
-	}
+	var candidates []string
 
-	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+	// 1. Windows specific common install paths
+	if runtime.GOOS == "windows" {
 		candidates = append(candidates,
-			filepath.Join(localAppData, `Microsoft\Edge\Application\msedge.exe`),
-			filepath.Join(localAppData, `Google\Chrome\Application\chrome.exe`),
+			// Brave (prioritized)
+			`C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe`,
+			`C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe`,
+			// Google Chrome
+			`C:\Program Files\Google\Chrome\Application\chrome.exe`,
+			`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
+			// Microsoft Edge
+			`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`,
+			`C:\Program Files\Microsoft\Edge\Application\msedge.exe`,
 		)
-	}
 
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			candidates = append(candidates,
+				filepath.Join(localAppData, `BraveSoftware\Brave-Browser\Application\brave.exe`),
+				filepath.Join(localAppData, `Google\Chrome\Application\chrome.exe`),
+				filepath.Join(localAppData, `Microsoft\Edge\Application\msedge.exe`),
+				filepath.Join(localAppData, `Chromium\Application\chrome.exe`),
+			)
+		}
+
+		for _, c := range candidates {
+			if _, err := os.Stat(c); err == nil {
+				return c, nil
+			}
 		}
 	}
 
-	if p, err := exec.LookPath("msedge"); err == nil {
-		return p, nil
-	}
-	if p, err := exec.LookPath("chrome"); err == nil {
-		return p, nil
+	// 2. Lookup via system PATH (works for both Windows and Linux)
+	lookNames := []string{
+		"brave",
+		"brave-browser",
+		"google-chrome-stable",
+		"google-chrome",
+		"chrome",
+		"chromium-browser",
+		"chromium",
+		"msedge",
+		"microsoft-edge-stable",
+		"microsoft-edge",
 	}
 
-	return "", errors.New("no compatible browser (Microsoft Edge or Google Chrome) found")
+	for _, name := range lookNames {
+		if p, err := exec.LookPath(name); err == nil {
+			return p, nil
+		}
+	}
+
+	return "", errors.New("no compatible Chromium-based browser (Brave, Google Chrome, Chromium, or Edge) found")
 }
 
 func getFreePort() (int, error) {
@@ -139,8 +165,14 @@ func (c *cdpClient) call(method string, params interface{}) (json.RawMessage, er
 	}
 }
 
-func killProcessTree(pid int) {
-	_ = exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", pid)).Run()
+func killProcessTree(cmd *exec.Cmd) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+	_ = cmd.Process.Kill()
+	if runtime.GOOS == "windows" {
+		_ = exec.Command("taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", cmd.Process.Pid)).Run()
+	}
 }
 
 // SolveCloudflare launches a visible browser window for the user to solve Cloudflare Turnstile,
@@ -202,8 +234,8 @@ func SolveCloudflare(targetURL string) (string, error) {
 	}()
 
 	defer func() {
-		if cmd.Process != nil {
-			killProcessTree(cmd.Process.Pid)
+		if cmd != nil && cmd.Process != nil {
+			killProcessTree(cmd)
 		}
 	}()
 

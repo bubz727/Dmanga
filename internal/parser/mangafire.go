@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"dmanga/internal/core"
 	"dmanga/internal/fetcher"
 	"dmanga/internal/utils"
+	"github.com/PuerkitoBio/goquery"
 )
 
 const (

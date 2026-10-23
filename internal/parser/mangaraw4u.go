@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/PuerkitoBio/goquery"
 	"dmanga/internal/core"
 	"dmanga/internal/fetcher"
 	"dmanga/internal/utils"
+	"github.com/PuerkitoBio/goquery"
 )
 
 var mangaraw4uImageRegex = regexp.MustCompile(`https?://[^"'\s<>]+\.(?:jpg|jpeg|png|webp)`)

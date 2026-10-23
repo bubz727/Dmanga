@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/PuerkitoBio/goquery"
 	"dmanga/internal/cli"
 	"dmanga/internal/downloader"
 	"dmanga/internal/image"
 	"dmanga/internal/image/descramble"
 	"dmanga/internal/parser"
 	"dmanga/internal/utils"
+	"github.com/PuerkitoBio/goquery"
 )
 
 func TestImageFormatConversion(t *testing.T) {
@@ -531,28 +531,28 @@ func TestNicoMangaChapterTitleExtraction(t *testing.T) {
 		expected   string
 	}{
 		{
-			name: "1. NicoManga standard breadcrumb snippet from user",
-			html: `<div class="jsx-4f85a76b1374b37f breadcrumb-navigation"><span class="jsx-4f85a76b1374b37f breadcrumb-item"><a href="https://nicomanga.com/" class="jsx-4f85a76b1374b37f"><i class="jsx-4f85a76b1374b37f fa fa-home"></i> Home</a></span><span class="jsx-4f85a76b1374b37f breadcrumb-separator">/</span><span class="jsx-4f85a76b1374b37f breadcrumb-item"><a href="https://nicomanga.com/manga-list.html" class="jsx-4f85a76b1374b37f">List manga</a></span><span class="jsx-4f85a76b1374b37f breadcrumb-separator">/</span><span class="jsx-4f85a76b1374b37f breadcrumb-item"><a href="https://nicomanga.com/manga835/14bc51bc.html" class="jsx-4f85a76b1374b37f manga-name">ISEKAI DE SLOW LIFE WO (GANBOU) - MANGA RAW</a></span><span class="jsx-4f85a76b1374b37f breadcrumb-separator">/</span><span class="jsx-4f85a76b1374b37f breadcrumb-item" style="color: rgb(255, 255, 255);">Chapter 69.1</span></div>`,
+			name:     "1. NicoManga standard breadcrumb snippet from user",
+			html:     `<div class="jsx-4f85a76b1374b37f breadcrumb-navigation"><span class="jsx-4f85a76b1374b37f breadcrumb-item"><a href="https://nicomanga.com/" class="jsx-4f85a76b1374b37f"><i class="jsx-4f85a76b1374b37f fa fa-home"></i> Home</a></span><span class="jsx-4f85a76b1374b37f breadcrumb-separator">/</span><span class="jsx-4f85a76b1374b37f breadcrumb-item"><a href="https://nicomanga.com/manga-list.html" class="jsx-4f85a76b1374b37f">List manga</a></span><span class="jsx-4f85a76b1374b37f breadcrumb-separator">/</span><span class="jsx-4f85a76b1374b37f breadcrumb-item"><a href="https://nicomanga.com/manga835/14bc51bc.html" class="jsx-4f85a76b1374b37f manga-name">ISEKAI DE SLOW LIFE WO (GANBOU) - MANGA RAW</a></span><span class="jsx-4f85a76b1374b37f breadcrumb-separator">/</span><span class="jsx-4f85a76b1374b37f breadcrumb-item" style="color: rgb(255, 255, 255);">Chapter 69.1</span></div>`,
 			expected: "Ch 69.1",
 		},
 		{
-			name: "2. Trailing elements with breadcrumb-item class in DOM",
-			html: `<div class="jsx-4f85a76b1374b37f breadcrumb-navigation"><span class="breadcrumb-item">Chapter 45</span></div><div class="footer"><span class="breadcrumb-item">Next Chapter</span></div>`,
+			name:     "2. Trailing elements with breadcrumb-item class in DOM",
+			html:     `<div class="jsx-4f85a76b1374b37f breadcrumb-navigation"><span class="breadcrumb-item">Chapter 45</span></div><div class="footer"><span class="breadcrumb-item">Next Chapter</span></div>`,
 			expected: "Ch 45",
 		},
 		{
-			name: "3. Escaped Next.js streaming RSC chunk in rawHTML",
-			rawHTML: `self.__next_f.push([1,"...<div class=\"jsx-4f85a76b1374b37f breadcrumb-navigation\"><span class=\"jsx-4f85a76b1374b37f breadcrumb-item\" style=\"color: rgb(255, 255, 255);\">Chapter 69.1<\/span><\/div>..."])`,
+			name:     "3. Escaped Next.js streaming RSC chunk in rawHTML",
+			rawHTML:  `self.__next_f.push([1,"...<div class=\"jsx-4f85a76b1374b37f breadcrumb-navigation\"><span class=\"jsx-4f85a76b1374b37f breadcrumb-item\" style=\"color: rgb(255, 255, 255);\">Chapter 69.1<\/span><\/div>..."])`,
 			expected: "Ch 69.1",
 		},
 		{
-			name: "4. Next.js React RSC JSON chunk in rawHTML",
-			rawHTML: `{"id":1,"children":"Chapter 69.1"}`,
+			name:     "4. Next.js React RSC JSON chunk in rawHTML",
+			rawHTML:  `{"id":1,"children":"Chapter 69.1"}`,
 			expected: "Ch 69.1",
 		},
 		{
-			name: "5. Title tag fallback",
-			html: `<html><head><title>ISEKAI DE SLOW LIFE WO Chapter 69.1 - NicoManga</title></head><body></body></html>`,
+			name:     "5. Title tag fallback",
+			html:     `<html><head><title>ISEKAI DE SLOW LIFE WO Chapter 69.1 - NicoManga</title></head><body></body></html>`,
 			expected: "Ch 69.1",
 		},
 		{

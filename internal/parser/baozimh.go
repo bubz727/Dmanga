@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/PuerkitoBio/goquery"
 	"dmanga/internal/core"
 	"dmanga/internal/fetcher"
+	"github.com/PuerkitoBio/goquery"
 )
 
 var (

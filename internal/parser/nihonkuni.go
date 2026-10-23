@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/PuerkitoBio/goquery"
 	"dmanga/internal/core"
 	"dmanga/internal/fetcher"
 	"dmanga/internal/utils"
+	"github.com/PuerkitoBio/goquery"
 )
 
 // Nihonkuni parser for nihonkuni.com

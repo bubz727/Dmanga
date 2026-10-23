@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"dmanga/internal/core"
 	"dmanga/internal/fetcher"
 	internalimage "dmanga/internal/image"
 	"dmanga/internal/utils"
+	"github.com/PuerkitoBio/goquery"
 )
 
 type ComiciParser struct{}

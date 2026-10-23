@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -164,5 +165,98 @@ func TestDownloadAllCountsFailures(t *testing.T) {
 	})
 	if completed != 2 || failed != 1 {
 		t.Errorf("Expected 2 completed and 1 failed, got %d/%d", completed, failed)
+	}
+}
+
+func TestExistingImageDetection(t *testing.T) {
+	dir := t.TempDir()
+
+	if _, ok := downloader.ExistingImage(dir, "001", ".jpg"); ok {
+		t.Errorf("Nothing exists yet")
+	}
+
+	// Empty file and .part file must not count
+	_ = os.WriteFile(filepath.Join(dir, "001.jpg"), nil, 0644)
+	_ = os.WriteFile(filepath.Join(dir, "002.jpg.part"), []byte("partial"), 0644)
+	if _, ok := downloader.ExistingImage(dir, "001", ".jpg"); ok {
+		t.Errorf("Empty file should not count as existing")
+	}
+	if _, ok := downloader.ExistingImage(dir, "002", ".jpg"); ok {
+		t.Errorf(".part file should not count as existing")
+	}
+
+	_ = os.WriteFile(filepath.Join(dir, "003.png"), []byte("data"), 0644)
+	if name, ok := downloader.ExistingImage(dir, "003", ".webp"); !ok || name != "003.png" {
+		t.Errorf("Expected 003.png to be detected even when URL extension differs, got (%q, %v)", name, ok)
+	}
+}
+
+func TestDownloadAllSkipsExistingUnlessForced(t *testing.T) {
+	jpegBytes := append([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10}, make([]byte, 256)...)
+	var hits atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		_, _ = w.Write(jpegBytes)
+	}))
+	defer server.Close()
+
+	var urls []string
+	for i := 1; i <= 5; i++ {
+		urls = append(urls, fmt.Sprintf("%s/img%d.jpg", server.URL, i))
+	}
+	dir := t.TempDir()
+	opts := downloader.Options{Concurrency: 3, Client: server.Client(), Out: io.Discard}
+
+	// First run downloads everything
+	if done, failed := downloader.DownloadAll(urls, dir, "example.com", nil, opts); done != 5 || failed != 0 {
+		t.Fatalf("first run: %d/%d", done, failed)
+	}
+	if hits.Load() != 5 {
+		t.Fatalf("expected 5 requests, got %d", hits.Load())
+	}
+
+	// Second run skips all of them without touching the network
+	var out strings.Builder
+	opts.Out = &out
+	if done, failed := downloader.DownloadAll(urls, dir, "example.com", nil, opts); done != 5 || failed != 0 {
+		t.Fatalf("second run: %d/%d", done, failed)
+	}
+	if hits.Load() != 5 {
+		t.Errorf("skip run should not hit the server, total requests %d", hits.Load())
+	}
+	if !strings.Contains(out.String(), "Skipped 5") {
+		t.Errorf("expected skip summary, got %q", out.String())
+	}
+
+	// Partial resume: delete two files, only those are fetched
+	_ = os.Remove(filepath.Join(dir, utils.FormatImageIndex(2, 5)+".jpg"))
+	_ = os.Remove(filepath.Join(dir, utils.FormatImageIndex(4, 5)+".jpg"))
+	opts.Out = io.Discard
+	if done, failed := downloader.DownloadAll(urls, dir, "example.com", nil, opts); done != 5 || failed != 0 {
+		t.Fatalf("resume run: %d/%d", done, failed)
+	}
+	if hits.Load() != 7 {
+		t.Errorf("expected only 2 new requests on resume, total %d", hits.Load())
+	}
+
+	// Force re-downloads everything
+	opts.Force = true
+	if done, failed := downloader.DownloadAll(urls, dir, "example.com", nil, opts); done != 5 || failed != 0 {
+		t.Fatalf("forced run: %d/%d", done, failed)
+	}
+	if hits.Load() != 12 {
+		t.Errorf("expected 5 more requests with --force, total %d", hits.Load())
+	}
+}
+
+func TestHasForceFlag(t *testing.T) {
+	if !cli.HasForceFlag("dmanga", "--force", "https://a.com/1") {
+		t.Errorf("--force should be detected")
+	}
+	if !cli.HasForceFlag("--force https://a.com/1") {
+		t.Errorf("--force in prompt string should be detected")
+	}
+	if cli.HasForceFlag("-f", "https://a.com/1") {
+		t.Errorf("-f (folder) must not be treated as force")
 	}
 }

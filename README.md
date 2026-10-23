@@ -110,6 +110,15 @@ Dmanga -c 16 https://example.com/chapter-1
 
 You can also set it once via the `DMANGA_CONCURRENCY` environment variable. The flag takes priority over the environment variable. If a site starts returning HTTP 429 (rate limit), Dmanga automatically lowers the number of active workers for that chapter.
 
+### Resume and Skip Existing (`--force`)
+Images that were already downloaded completely (same file name, non-empty) are skipped, so re-running an interrupted chapter only fetches what is missing. Files are written to a temporary `.part` file first, so a partially written image is never mistaken for a finished one. Use `--force` to re-download everything:
+
+```cmd
+Dmanga --force https://example.com/chapter-1
+```
+
+Note: when downloading several different chapters into the same folder without `-f`, files such as `001.jpg` from an earlier chapter count as existing. Use `-f` (subfolder per chapter) or `--force` in that case.
+
 ### Multi-Link Batch Download
 Download multiple chapters simultaneously by separating URLs with spaces or pipe (`|`) characters:
 

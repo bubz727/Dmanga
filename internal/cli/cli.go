@@ -85,6 +85,7 @@ func Run(args []string) {
 
 	hasFolderFlag := HasFolderFlag(args...)
 	noCheck := HasNoUpdateCheckFlag(args...)
+	force := HasForceFlag(args...)
 	concurrencyVal, concurrencyFound := ParseConcurrencyFlag(args...)
 	prefetchVal, prefetchFound := ParsePrefetchFlag(args...)
 	updateCh := StartPassiveUpdateCheck(noCheck)
@@ -105,6 +106,9 @@ func Run(args []string) {
 			}
 			if HasNoUpdateCheckFlag(promptInput) {
 				noCheck = true
+			}
+			if HasForceFlag(promptInput) {
+				force = true
 			}
 			if !concurrencyFound {
 				concurrencyVal, concurrencyFound = ParseConcurrencyFlag(promptInput)
@@ -221,7 +225,7 @@ func Run(args []string) {
 		}
 
 		fmt.Printf("[+] Found %d images. Starting download...\n\n", total)
-		downloader.DownloadAll(imageURLs, saveDir, parsedURL.Host, p, downloader.Options{Concurrency: concurrency})
+		downloader.DownloadAll(imageURLs, saveDir, parsedURL.Host, p, downloader.Options{Concurrency: concurrency, Force: force})
 
 		if isMulti {
 			fmt.Printf("\n[OK] [%d/%d] Chapter download complete!\n\n", idx+1, len(urls))

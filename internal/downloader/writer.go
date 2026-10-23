@@ -26,3 +26,20 @@ func WriteImageFile(targetDir, baseName, defaultExt string, bodyBytes []byte) (s
 
 	return fileName, nil
 }
+
+// ExistingImage reports whether a completed image for baseName already exists in targetDir.
+// It checks the final extensions Dmanga produces (.jpg, .png) plus the extension taken from the URL.
+// Empty files and temporary ".part" files do not count as existing.
+func ExistingImage(targetDir, baseName, urlExt string) (string, bool) {
+	candidates := []string{".jpg", ".png"}
+	if urlExt != "" && urlExt != ".jpg" && urlExt != ".png" {
+		candidates = append(candidates, urlExt)
+	}
+	for _, ext := range candidates {
+		name := baseName + ext
+		if info, err := os.Stat(filepath.Join(targetDir, name)); err == nil && info.Mode().IsRegular() && info.Size() > 0 {
+			return name, true
+		}
+	}
+	return "", false
+}

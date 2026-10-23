@@ -147,3 +147,16 @@ func ResolvePrefetch(flagValue int, flagFound bool) (n int, warn string) {
 	}
 	return n, warn
 }
+
+// HasForceFlag checks if --force is present in any slice of strings or arguments
+func HasForceFlag(items ...string) bool {
+	for _, item := range items {
+		for _, tok := range strings.Fields(item) {
+			lower := strings.ToLower(strings.TrimSpace(tok))
+			if lower == "--force" || lower == "-force" {
+				return true
+			}
+		}
+	}
+	return false
+}

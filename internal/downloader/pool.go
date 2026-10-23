@@ -38,6 +38,8 @@ type Options struct {
 	Client *http.Client
 	// Out receives progress output. Defaults to os.Stdout.
 	Out io.Writer
+	// Force re-downloads images even when a completed file with the same name already exists.
+	Force bool
 }
 
 // ClampConcurrency normalizes a requested worker count into the supported range.
@@ -122,7 +124,7 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser,
 		out = os.Stdout
 	}
 
-	var completedCount, failedCount, totalBytes, finishedCount atomic.Int64
+	var completedCount, failedCount, totalBytes, finishedCount, skippedCount atomic.Int64
 	var aborted atomic.Bool
 	startTime := time.Now()
 	failCh := make(chan string, total+1)
@@ -207,10 +209,19 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser,
 					continue
 				}
 
-				lim.acquire()
-
 				ext := utils.GetFileExtension(j.url)
 				baseName := utils.FormatImageIndex(j.index+1, total)
+
+				if !opts.Force {
+					if _, exists := ExistingImage(targetDir, baseName, ext); exists {
+						completedCount.Add(1)
+						skippedCount.Add(1)
+						continue
+					}
+				}
+
+				lim.acquire()
+
 				_, size, err := DownloadFile(client, j.url, targetDir, baseName, ext, host, parser)
 
 				lim.release()
@@ -239,6 +250,9 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser,
 	<-rendered
 
 	completed, failed = int(completedCount.Load()), int(failedCount.Load())
+	if n := skippedCount.Load(); n > 0 {
+		fmt.Fprintf(out, "[*] Skipped %d image(s) that already exist (use --force to re-download).\n", n)
+	}
 	if fetcher.Context().Err() != nil {
 		fmt.Fprintln(out, "[!] Interrupted by user.")
 	}

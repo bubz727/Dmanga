@@ -11,6 +11,7 @@ func ShowHelp() {
 	fmt.Println("  -l, --list, list        Display all supported parsers and domains")
 	fmt.Println("  -t, --test <url>        Run diagnostic checks on a URL")
 	fmt.Println("  -f, --folder            Download chapter into its own subfolder")
+	fmt.Println("  -v, --version, version  Display version and build metadata")
 	fmt.Println("  -h, --help, help        Show this help message")
 	fmt.Println()
 	fmt.Println("Download Usage:")

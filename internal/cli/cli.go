@@ -24,7 +24,13 @@ func Run(args []string) {
 			return
 		}
 
-		// Mode 2: HELP (-h, --help, help)
+		// Mode 2: VERSION (-v, --version, version)
+		if arg == "-v" || arg == "--version" || arg == "version" {
+			ShowVersion()
+			return
+		}
+
+		// Mode 3: HELP (-h, --help, help)
 		if arg == "-h" || arg == "--help" || arg == "help" {
 			ShowHelp()
 			return

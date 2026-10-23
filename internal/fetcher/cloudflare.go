@@ -175,9 +175,16 @@ func killProcessTree(cmd *exec.Cmd) {
 	}
 }
 
+// solveMu serializes interactive Cloudflare solves so two browser windows are never opened at once
+// (for example when a prefetched chapter and the current chapter hit a challenge at the same time).
+var solveMu sync.Mutex
+
 // SolveCloudflare launches a visible browser window for the user to solve Cloudflare Turnstile,
 // captures cf_clearance and session headers, and returns the rendered HTML.
 func SolveCloudflare(targetURL string) (string, error) {
+	solveMu.Lock()
+	defer solveMu.Unlock()
+
 	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
 		return "", err

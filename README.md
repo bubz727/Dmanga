@@ -125,6 +125,15 @@ Dmanga "https://example.com/chapter-1 | https://example.com/chapter-2"
 
 In multi-link mode, each chapter is automatically saved in its own organized subfolder (e.g., `Ch 1`, `Ch 2`, or authentic Japanese title `第1話`).
 
+### Chapter Prefetch (`--prefetch`)
+While one chapter is downloading, Dmanga fetches the page and image list of the next chapters in the background, so there is no loading pause between chapters. The default is `2` chapters ahead; use `--prefetch 0` to turn it off, or raise it up to `5`:
+
+```cmd
+Dmanga --prefetch 3 https://example.com/chapter-1 https://example.com/chapter-2 https://example.com/chapter-3
+```
+
+It can also be set with the `DMANGA_PREFETCH` environment variable (the flag takes priority). The first chapter of each website is always fetched in the foreground, so any Cloudflare verification window appears at the right moment.
+
 ### Prompt Mode
 Run `Dmanga` without arguments:
 

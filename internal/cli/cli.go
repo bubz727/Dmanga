@@ -2,15 +2,14 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"dmanga/internal/core"
 	"dmanga/internal/downloader"
-	"dmanga/internal/parser"
 )
 
 // Run executes the CLI command workflow based on provided args
@@ -86,6 +85,7 @@ func Run(args []string) {
 	hasFolderFlag := HasFolderFlag(args...)
 	noCheck := HasNoUpdateCheckFlag(args...)
 	concurrencyVal, concurrencyFound := ParseConcurrencyFlag(args...)
+	prefetchVal, prefetchFound := ParsePrefetchFlag(args...)
 	updateCh := StartPassiveUpdateCheck(noCheck)
 
 	rawInput := ""
@@ -108,6 +108,9 @@ func Run(args []string) {
 			if !concurrencyFound {
 				concurrencyVal, concurrencyFound = ParseConcurrencyFlag(promptInput)
 			}
+			if !prefetchFound {
+				prefetchVal, prefetchFound = ParsePrefetchFlag(promptInput)
+			}
 			urls = ParseInputURLs(promptInput)
 		}
 	}
@@ -122,6 +125,11 @@ func Run(args []string) {
 		fmt.Printf("[!] %s\n", concurrencyWarn)
 	}
 
+	prefetch, prefetchWarn := ResolvePrefetch(prefetchVal, prefetchFound)
+	if prefetchWarn != "" {
+		fmt.Printf("[!] %s\n", prefetchWarn)
+	}
+
 	isMulti := len(urls) > 1
 	createFolder := isMulti || hasFolderFlag
 	if isMulti {
@@ -132,18 +140,25 @@ func Run(args []string) {
 
 	usedFolders := make(map[string]int)
 
-	for idx, chapterURL := range urls {
-		parsedURL, err := url.Parse(chapterURL)
-		if err != nil || parsedURL.Host == "" {
-			fmt.Printf("[!] [%d/%d] Invalid URL format: %s\n\n", idx+1, len(urls), chapterURL)
-			continue
-		}
+	targets := make([]ChapterTarget, len(urls))
+	for i, u := range urls {
+		targets[i] = resolveTarget(u)
+	}
+	pf := NewPrefetcher(targets, prefetch, nil)
+	defer pf.Close()
 
-		p, err := parser.FindParser(parsedURL.Host)
-		if err != nil {
-			fmt.Printf("[!] [%d/%d] %v\n\n", idx+1, len(urls), err)
+	for idx, chapterURL := range urls {
+		target := targets[idx]
+		if target.Err != nil {
+			if errors.Is(target.Err, errInvalidURL) {
+				fmt.Printf("[!] [%d/%d] Invalid URL format: %s\n\n", idx+1, len(urls), chapterURL)
+			} else {
+				fmt.Printf("[!] [%d/%d] %v\n\n", idx+1, len(urls), target.Err)
+			}
 			continue
 		}
+		parsedURL := &url.URL{Host: target.Host}
+		p := target.Parser
 
 		if isMulti {
 			fmt.Println()
@@ -154,11 +169,16 @@ func Run(args []string) {
 		}
 
 		fmt.Println("[*] Fetching chapter information & image URLs...")
-		chap, err := core.FetchChapter(p, chapterURL)
+		chap, err := pf.Get(idx)
 		if err != nil {
 			fmt.Printf("[!] Failed to extract chapter: %v\n\n", err)
 			continue
 		}
+
+		// This host is now known to work (any Cloudflare solve already happened in the foreground),
+		// so upcoming chapters can have their metadata fetched while this one downloads.
+		pf.MarkWarmed(target.Host)
+		pf.Kick(idx)
 
 		imageURLs := chap.Images
 		total := len(imageURLs)

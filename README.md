@@ -101,6 +101,15 @@ To download a single chapter into its own dedicated subfolder (named after the c
 Dmanga -f https://weebcentral.com/chapters/01M5DR493EHYY89H1S8B8GY0EG
 ```
 
+### Download Speed (`-c`, `--concurrency`)
+Control how many images are downloaded in parallel (default `10`, maximum `32`):
+
+```cmd
+Dmanga -c 16 https://example.com/chapter-1
+```
+
+You can also set it once via the `DMANGA_CONCURRENCY` environment variable. The flag takes priority over the environment variable. If a site starts returning HTTP 429 (rate limit), Dmanga automatically lowers the number of active workers for that chapter.
+
 ### Multi-Link Batch Download
 Download multiple chapters simultaneously by separating URLs with spaces or pipe (`|`) characters:
 

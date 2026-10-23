@@ -85,6 +85,7 @@ func Run(args []string) {
 
 	hasFolderFlag := HasFolderFlag(args...)
 	noCheck := HasNoUpdateCheckFlag(args...)
+	concurrencyVal, concurrencyFound := ParseConcurrencyFlag(args...)
 	updateCh := StartPassiveUpdateCheck(noCheck)
 
 	rawInput := ""
@@ -104,6 +105,9 @@ func Run(args []string) {
 			if HasNoUpdateCheckFlag(promptInput) {
 				noCheck = true
 			}
+			if !concurrencyFound {
+				concurrencyVal, concurrencyFound = ParseConcurrencyFlag(promptInput)
+			}
 			urls = ParseInputURLs(promptInput)
 		}
 	}
@@ -111,6 +115,11 @@ func Run(args []string) {
 	if len(urls) == 0 {
 		fmt.Println("[!] No valid chapter URL provided.")
 		return
+	}
+
+	concurrency, concurrencyWarn := ResolveConcurrency(concurrencyVal, concurrencyFound)
+	if concurrencyWarn != "" {
+		fmt.Printf("[!] %s\n", concurrencyWarn)
 	}
 
 	isMulti := len(urls) > 1
@@ -187,7 +196,7 @@ func Run(args []string) {
 		}
 
 		fmt.Printf("[+] Found %d images. Starting download...\n\n", total)
-		downloader.DownloadAll(imageURLs, saveDir, parsedURL.Host, p)
+		downloader.DownloadAll(imageURLs, saveDir, parsedURL.Host, p, downloader.Options{Concurrency: concurrency})
 
 		if isMulti {
 			fmt.Printf("\n[OK] [%d/%d] Chapter download complete!\n\n", idx+1, len(urls))

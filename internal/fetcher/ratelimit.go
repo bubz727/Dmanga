@@ -4,13 +4,21 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 var (
 	rateLimitMu       sync.RWMutex
 	rateLimitCooldown time.Time
+	rateLimitHits     atomic.Int64
 )
+
+// RateLimitHits returns how many times a global cooldown has been triggered (HTTP 429 events).
+// Callers can compare successive values to detect new rate limiting and throttle concurrency.
+func RateLimitHits() int64 {
+	return rateLimitHits.Load()
+}
 
 // CheckRateLimitCooldown blocks if a global rate limit cooldown is active across all workers
 func CheckRateLimitCooldown() {
@@ -25,6 +33,7 @@ func CheckRateLimitCooldown() {
 
 // TriggerRateLimitCooldown activates a global cooldown duration for all workers
 func TriggerRateLimitCooldown(d time.Duration) {
+	rateLimitHits.Add(1)
 	rateLimitMu.Lock()
 	target := time.Now().Add(d)
 	if target.After(rateLimitCooldown) {

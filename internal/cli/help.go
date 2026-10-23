@@ -11,6 +11,7 @@ func ShowHelp() {
 	fmt.Println("  -l, --list, list        Display all supported parsers and domains")
 	fmt.Println("  -t, --test <url>        Run diagnostic checks on a URL")
 	fmt.Println("  -f, --folder            Download chapter into its own subfolder")
+	fmt.Println("  -c, --concurrency <n>   Parallel image downloads (default 10, max 32; env DMANGA_CONCURRENCY)")
 	fmt.Println("  -v, --version, version  Display version (use --verbose for build metadata)")
 	fmt.Println("  update, --update        Update Dmanga to the latest version automatically")
 	fmt.Println("  --check-update          Check GitHub for newer releases explicitly")

@@ -21,7 +21,7 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X 'dmanga/internal/cli.Version={{ .Version }}'
+      - -X 'dmanga/internal/cli.Version={{ if .Tag }}{{ .Tag }}{{ else }}{{ .Version }}{{ end }}'
       - -X 'dmanga/internal/cli.GitCommit={{ .ShortCommit }}'
       - -X 'dmanga/internal/cli.BuildTime={{ .CommitDate }}'
 
@@ -36,6 +36,22 @@ checksum:
 
 changelog:
   sort: asc
+  use: git
+  groups:
+    - title: "Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Performance"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "Refactor & Maintenance"
+      regexp: '^.*?(refactor|chore)(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: "Others"
+      order: 999
   filters:
     exclude:
       - '^docs:'
@@ -48,6 +64,12 @@ release:
   github:
     owner: bubz727
     name: Dmanga
-  draft: false
+  draft: true
   prerelease: auto
   mode: replace
+  header: |
+    Built from {{ .ShortCommit }}.
+
+    ## What's Changed
+  footer: |
+    {{ if .PreviousTag }}**Full Changelog**: https://github.com/bubz727/Dmanga/compare/{{ .PreviousTag }}...{{ .Tag }}{{ else }}**Full Changelog**: https://github.com/bubz727/Dmanga/commits/{{ .Tag }}{{ end }}

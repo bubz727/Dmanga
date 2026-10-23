@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -641,5 +643,66 @@ func TestDecryptMangaPlus(t *testing.T) {
 	unmod, err := descramble.DecryptMangaPlus(orig, urlWithoutKey)
 	if err != nil || string(unmod) != string(orig) {
 		t.Fatalf("Expected unmodified bytes when no key is present")
+	}
+}
+
+func TestDecryptMangaUpGlobal(t *testing.T) {
+	// 32-byte key (256-bit) and 16-byte IV in hex
+	keyHex := "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+	ivHex := "000102030405060708090a0b0c0d0e0f"
+	orig := []byte("Hello MangaUpGlobal AES Decrypt!!") // 33 bytes, will be padded
+
+	// Pad to 16-byte block size using PKCS#7
+	padLen := 16 - (len(orig) % 16)
+	padded := append(orig, make([]byte, padLen)...)
+	for i := len(orig); i < len(padded); i++ {
+		padded[i] = byte(padLen)
+	}
+
+	// Encrypt using AES-256-CBC
+	block, err := aes.NewCipher([]byte{
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+		0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create cipher: %v", err)
+	}
+	iv := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+	enc := make([]byte, len(padded))
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(enc, padded)
+
+	// Decrypt using DecryptMangaUpGlobal
+	imgURL := fmt.Sprintf("https://global-img.manga-up.com/test.jpg#key=%s&iv=%s", keyHex, ivHex)
+	dec, err := descramble.DecryptMangaUpGlobal(enc, imgURL)
+	if err != nil {
+		t.Fatalf("DecryptMangaUpGlobal failed: %v", err)
+	}
+	if string(dec) != string(orig) {
+		t.Fatalf("Expected %q, got %q", orig, dec)
+	}
+}
+
+func TestNewParsersRegistry(t *testing.T) {
+	requiredDomains := map[string]string{
+		"baozimh.com":                "Baozimh",
+		"webtoons.com":               "Webtoon",
+		"manga-up.com":               "MangaUpJapan",
+		"global.manga-up.com":        "MangaUpGlobal",
+		"tappytoon.com":              "Tappytoon",
+		"viewer-trial.bookwalker.jp": "BookWalker",
+		"bookwalker.jp":              "BookWalker",
+	}
+
+	for domain, expectedParser := range requiredDomains {
+		p, err := parser.FindParser(domain)
+		if err != nil {
+			t.Errorf("Domain '%s' not registered: %v", domain, err)
+			continue
+		}
+		if p.Name() != expectedParser {
+			t.Errorf("Domain '%s' mapped to %s, expected %s", domain, p.Name(), expectedParser)
+		}
 	}
 }

@@ -8,15 +8,21 @@ A lightweight, high-performance command-line manga, comic, and webtoon downloade
 
 ## Supported Platforms
 
-Dmanga currently supports **80 domains** across **19 specialized parsers**:
+Dmanga currently supports **108 domains** across **25 specialized parsers**:
 
 | Parser | Domains Supported |
 | :--- | :--- |
 | **GigaViewer** | 25 domains (`comic-days.com`, `shonenjumpplus.com`, `tonarinoyj.jp`, `sunday-webry.com`, `kuragebunch.com`, `comic-earthstar.com`, `comic-gardo.com`, `comic-zenon.com`, etc.) |
 | **Comici** | 25 domains (`younganimal.com`, `championcross.jp`, `bigcomics.jp`, `hanayume.com`, `youngchampion.jp`, `comicpash.jp`, `comicride.jp`, etc.) |
+| **Baozimh** | 12 domains (`baozimh.com`, `baozimh.org`, `baozimhw.com`, `twmanga.com`, `webmota.com`, and regional/www subdomains) |
+| **BookWalker** | 8 domains (`bookwalker.jp`, `global.bookwalker.jp`, `viewer-trial.bookwalker.jp`, `bookwalker.com`, etc.) |
 | **Comic-Walker** | `comic-walker.com`, `www.comic-walker.com` |
 | **MANGA Plus** | `mangaplus.shueisha.co.jp` |
+| **MangaUp Global** | `global.manga-up.com` |
+| **MangaUp Japan** | `manga-up.com`, `www.manga-up.com` |
 | **Naver Comic** | `comic.naver.com`, `m.comic.naver.com` |
+| **Webtoon** | `webtoons.com`, `m.webtoons.com`, `www.webtoons.com` |
+| **Tappytoon** | `tappytoon.com`, `www.tappytoon.com` |
 | **MangaFire** | `mangafire.to` |
 | **MangaDex** | `mangadex.org` |
 | **Mangago** | `mangago.me` |

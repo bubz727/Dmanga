@@ -1,0 +1,53 @@
+version: 2
+
+project_name: Dmanga
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+builds:
+  - id: dmanga
+    main: ./cmd/dmanga
+    binary: Dmanga
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X 'dmanga/internal/cli.Version={{ .Version }}'
+      - -X 'dmanga/internal/cli.GitCommit={{ .ShortCommit }}'
+      - -X 'dmanga/internal/cli.BuildTime={{ .CommitDate }}'
+
+archives:
+  - id: default
+    format: binary
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "SHA256SUMS.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: bubz727
+    name: Dmanga
+  draft: false
+  prerelease: auto
+  mode: replace

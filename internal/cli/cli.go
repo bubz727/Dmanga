@@ -26,6 +26,10 @@ func Run(args []string) {
 
 		// Mode 2: VERSION (-v, --version, version)
 		if arg == "-v" || arg == "--version" || arg == "version" {
+			if len(args) >= 3 && (strings.ToLower(args[2]) == "--verbose" || strings.ToLower(args[2]) == "-v") {
+				ShowVerboseVersion()
+				return
+			}
 			ShowVersion()
 			return
 		}

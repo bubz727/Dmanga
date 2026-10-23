@@ -109,7 +109,7 @@ func FetchLatestRelease(apiURL string, timeout time.Duration) (string, string, e
 
 // CheckUpdateExplicit performs a synchronous, visible check for updates (used by --check-update)
 func CheckUpdateExplicit() {
-	fmt.Printf("[*] Checking for updates (current: %s)...\n", Version)
+	fmt.Printf("[*] Checking for updates (current: %s)...\n", GetVersion())
 	tag, releaseURL, err := FetchLatestRelease(ReleaseAPIURL, 3*time.Second)
 	if err != nil {
 		fmt.Printf("[!] Failed to check for updates: %v\n", err)
@@ -124,11 +124,11 @@ func CheckUpdateExplicit() {
 	})
 
 	if IsUpdateAvailable(Version, tag) {
-		fmt.Printf("\n[+] A new version of Dmanga is available: %s (current: %s)\n", tag, Version)
+		fmt.Printf("\n[+] A new version of Dmanga is available: %s (current: %s)\n", tag, GetVersion())
 		fmt.Printf("[*] Release URL: %s\n", releaseURL)
 		fmt.Printf("[*] Run 'Dmanga update' to update automatically.\n\n")
 	} else {
-		fmt.Printf("[OK] Dmanga is up to date (%s).\n\n", Version)
+		fmt.Printf("[OK] Dmanga is up to date (%s).\n\n", GetVersion())
 	}
 }
 
@@ -188,9 +188,8 @@ func PrintUpdateBanner(info *UpdateInfo) {
 		return
 	}
 	fmt.Println()
-	fmt.Println("─────────────────────────────────────────────────────────────")
 	fmt.Printf("[!] A new version of Dmanga is available: %s -> %s\n", info.CurrentVersion, info.LatestVersion)
 	fmt.Printf("    Release page : %s\n", info.ReleaseURL)
 	fmt.Println("    Run 'Dmanga update' to install the latest version.")
-	fmt.Println("─────────────────────────────────────────────────────────────")
+	fmt.Println()
 }

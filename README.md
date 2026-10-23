@@ -2,13 +2,11 @@
 
 A lightweight, high-performance command-line manga, comic, and webtoon downloader written in Go.
 
-**Dmanga** is primarily focused on **Japanese RAW manga** and major digital platforms featuring expansive catalogs and high-resolution image quality (including official publisher platforms, GigaViewer, Comici, and dedicated raw archives).
+Primarily focused on **RAW manga** and major digital platforms and high-resolution image quality.
 
 ---
 
 ## Supported Platforms
-
-Dmanga currently supports **108 domains** across **25 specialized parsers**:
 
 | Parser | Domains Supported |
 | :--- | :--- |
@@ -42,18 +40,14 @@ Run `Dmanga -l` to view all supported platforms in your terminal.
 
 ---
 
-## Installation
-
-### 1-Line Quick Install (Recommended)
+## Quick Installation
 
 #### Windows (PowerShell)
-Installs Dmanga and automatically configures your User `PATH`:
 ```powershell
 irm https://raw.githubusercontent.com/bubz727/Dmanga/main/install.ps1 | iex
 ```
 
 #### Linux (curl & bash)
-Installs Dmanga to `~/.local/bin/Dmanga` and configures execution permissions:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/bubz727/Dmanga/main/install.sh | bash
 ```

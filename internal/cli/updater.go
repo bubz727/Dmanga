@@ -197,7 +197,7 @@ func ExecuteSelfUpdate() {
 	}
 	_ = os.Remove(testFile)
 
-	fmt.Printf("[*] Checking for updates (current version: %s)...\n", Version)
+	fmt.Printf("[*] Checking for updates (current version: %s)...\n", GetVersion())
 	releaseInfo, err := FetchReleaseAssets(ReleaseAPIURL, targetBinary)
 	if err != nil {
 		fmt.Printf("[!] Update check failed: %v\n", err)
@@ -205,11 +205,11 @@ func ExecuteSelfUpdate() {
 	}
 
 	if !IsUpdateAvailable(Version, releaseInfo.TagName) {
-		fmt.Printf("[OK] Dmanga is already up to date (%s).\n", Version)
+		fmt.Printf("[OK] Dmanga is already up to date (%s).\n", GetVersion())
 		return
 	}
 
-	fmt.Printf("[+] New version available: %s -> %s\n", Version, releaseInfo.TagName)
+	fmt.Printf("[+] New version available: %s -> %s\n", GetVersion(), releaseInfo.TagName)
 
 	// 2. Fetch expected checksum if available
 	expectedHash := ""

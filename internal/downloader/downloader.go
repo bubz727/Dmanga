@@ -87,7 +87,7 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser)
 			ext := utils.GetFileExtension(imgURL)
 			baseName := utils.FormatImageIndex(index+1, total)
 
-			_, _, _, _, size, err := DownloadFile(client, imgURL, targetDir, baseName, ext, host, parser)
+			_, size, err := DownloadFile(client, imgURL, targetDir, baseName, ext, host, parser)
 
 			mu.Lock()
 			defer mu.Unlock()

@@ -2,11 +2,8 @@ package downloader
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"image"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
 	"io"
 	"net/http"
 	"net/url"
@@ -14,15 +11,31 @@ import (
 	"strings"
 	"time"
 
-	_ "golang.org/x/image/webp"
-
 	"dmanga/internal/core"
 	"dmanga/internal/fetcher"
 	internalimage "dmanga/internal/image"
 )
 
-// DownloadFile downloads a single image, processes it (descrambling/format conversion), and saves it to disk
-func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt, host string, parser core.Parser) (string, string, int, int, int64, error) {
+// maxPreallocBytes caps the buffer pre-sized from Content-Length to avoid huge allocations
+// when a server reports a bogus length.
+const maxPreallocBytes = 64 << 20
+
+// readBody reads the response body into memory, pre-sizing the buffer from Content-Length
+// when it is known to avoid repeated slice growth.
+func readBody(resp *http.Response) ([]byte, error) {
+	var buf bytes.Buffer
+	if n := resp.ContentLength; n > 0 && n <= maxPreallocBytes {
+		buf.Grow(int(n))
+	}
+	if _, err := io.Copy(&buf, resp.Body); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// DownloadFile downloads a single image, processes it (descrambling/format conversion), and saves it to disk.
+// It returns the saved file name and the number of bytes written.
+func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt, host string, parser core.Parser) (string, int64, error) {
 	fetchURL := fileURL
 	if idx := strings.Index(fetchURL, "#"); idx != -1 {
 		fetchURL = fetchURL[:idx]
@@ -39,32 +52,34 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 
 	maxRetries := 3
 	var bodyBytes []byte
-	var err error
+	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		fetcher.CheckRateLimitCooldown()
 
-		req, err := http.NewRequest("GET", fetchURL, nil)
-		if err != nil {
-			return "", origName, 0, 0, 0, err
+		req, reqErr := http.NewRequest("GET", fetchURL, nil)
+		if reqErr != nil {
+			return "", 0, reqErr
 		}
 
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 		req.Header.Set("Referer", fmt.Sprintf("https://%s/", host))
 		fetcher.ApplySessionHeaders(req, host)
 
-		resp, err := client.Do(req)
-		if err != nil {
+		resp, doErr := client.Do(req)
+		if doErr != nil {
+			lastErr = doErr
 			if attempt < maxRetries {
 				time.Sleep(2 * time.Second)
 				continue
 			}
-			return "", origName, 0, 0, 0, err
+			return "", 0, lastErr
 		}
 
 		// Handle Rate Limiting (HTTP 429)
 		if resp.StatusCode == http.StatusTooManyRequests {
 			resp.Body.Close()
+			lastErr = fmt.Errorf("status code %d (rate limited)", resp.StatusCode)
 			retryAfter := fetcher.ParseRetryAfter(resp.Header.Get("Retry-After"), attempt)
 			fmt.Printf("\n[!] [RATE LIMIT WARNING] Host '%s' returned HTTP 429 (Too Many Requests)!\n", host)
 			fmt.Printf("[*] Pausing downloads for %v before retrying %s (attempt %d/%d)...\n\n", retryAfter, origName, attempt+1, maxRetries)
@@ -75,28 +90,37 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
+			lastErr = fmt.Errorf("status code %d", resp.StatusCode)
 			if attempt < maxRetries && (resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusGatewayTimeout || resp.StatusCode == http.StatusServiceUnavailable) {
 				time.Sleep(3 * time.Second)
 				continue
 			}
-			return "", origName, 0, 0, 0, fmt.Errorf("status code %d", resp.StatusCode)
+			return "", 0, lastErr
 		}
 
-		bodyBytes, err = io.ReadAll(resp.Body)
+		body, readErr := readBody(resp)
 		resp.Body.Close()
-		if err != nil {
+		if readErr != nil {
+			lastErr = readErr
 			if attempt < maxRetries {
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			return "", origName, 0, 0, 0, err
+			return "", 0, lastErr
 		}
 
 		// Successfully read body
+		bodyBytes = body
+		lastErr = nil
 		break
 	}
-	if err != nil {
-		return "", origName, 0, 0, 0, err
+
+	// All attempts exhausted without obtaining a body (e.g. persistent HTTP 429): never write an empty file
+	if bodyBytes == nil {
+		if lastErr == nil {
+			lastErr = errors.New("no data received")
+		}
+		return "", 0, fmt.Errorf("giving up after %d attempts: %w", maxRetries+1, lastErr)
 	}
 
 	// 1. Process image with ImageProcessor (e.g. descrambler) if supported
@@ -114,12 +138,6 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 		defaultExt = finalExt
 	}
 
-	// 3. Read image dimensions (width x height)
-	width, height := 0, 0
-	if cfg, _, err := image.DecodeConfig(bytes.NewReader(bodyBytes)); err == nil {
-		width, height = cfg.Width, cfg.Height
-	}
-
 	fileName, err := WriteImageFile(targetDir, baseName, defaultExt, bodyBytes)
-	return fileName, origName, width, height, int64(len(bodyBytes)), err
+	return fileName, int64(len(bodyBytes)), err
 }

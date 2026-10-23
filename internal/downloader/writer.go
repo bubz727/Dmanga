@@ -6,18 +6,21 @@ import (
 	"path/filepath"
 )
 
-// WriteImageFile writes the processed image byte slice to disk with the target baseName and extension
+// WriteImageFile writes the processed image byte slice to disk with the target baseName and extension.
+// Data is written to a temporary ".part" file first and then renamed, so an interrupted run never
+// leaves a truncated image under its final name.
 func WriteImageFile(targetDir, baseName, defaultExt string, bodyBytes []byte) (string, error) {
 	fileName := fmt.Sprintf("%s%s", baseName, defaultExt)
 	destPath := filepath.Join(targetDir, fileName)
+	partPath := destPath + ".part"
 
-	out, err := os.Create(destPath)
-	if err != nil {
+	if err := os.WriteFile(partPath, bodyBytes, 0644); err != nil {
+		_ = os.Remove(partPath)
 		return "", err
 	}
-	defer out.Close()
 
-	if _, err := out.Write(bodyBytes); err != nil {
+	if err := os.Rename(partPath, destPath); err != nil {
+		_ = os.Remove(partPath)
 		return "", err
 	}
 

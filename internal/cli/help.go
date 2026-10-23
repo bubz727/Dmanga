@@ -12,6 +12,7 @@ func ShowHelp() {
 	fmt.Println("  -t, --test <url>        Run diagnostic checks on a URL")
 	fmt.Println("  -f, --folder            Download chapter into its own subfolder")
 	fmt.Println("  -v, --version, version  Display version and build metadata")
+	fmt.Println("  update, --update        Update Dmanga to the latest version automatically")
 	fmt.Println("  --check-update          Check GitHub for newer releases explicitly")
 	fmt.Println("  --no-update-check       Disable passive background update check")
 	fmt.Println("  -h, --help, help        Show this help message")

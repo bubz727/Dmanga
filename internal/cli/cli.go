@@ -42,7 +42,17 @@ func Run(args []string) {
 			return
 		}
 
-		// Mode 5: DIAGNOSTIC TEST MODE (-t or --test)
+		// Mode 5: SELF-UPDATE (update, --update)
+		if arg == "update" || arg == "--update" {
+			if len(args) >= 3 && (strings.ToLower(args[2]) == "--check" || strings.ToLower(args[2]) == "-c" || strings.ToLower(args[2]) == "check") {
+				CheckUpdateExplicit()
+				return
+			}
+			ExecuteSelfUpdate()
+			return
+		}
+
+		// Mode 6: DIAGNOSTIC TEST MODE (-t or --test)
 		if arg == "-t" || arg == "--test" {
 			testURL := ""
 			if len(args) >= 3 {

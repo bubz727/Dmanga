@@ -42,27 +42,50 @@ Run `Dmanga -l` to view all supported platforms in your terminal.
 
 ---
 
-## Installation & Build
+## Installation
 
-### 1. Prerequisites
+### 1-Line Quick Install (Recommended)
+
+#### Windows (PowerShell)
+Installs Dmanga and automatically configures your User `PATH`:
+```powershell
+irm https://raw.githubusercontent.com/bubz727/Dmanga/main/install.ps1 | iex
+```
+
+#### Linux (curl & bash)
+Installs Dmanga to `~/.local/bin/Dmanga` and configures execution permissions:
+```bash
+curl -fsSL https://raw.githubusercontent.com/bubz727/Dmanga/main/install.sh | bash
+```
+
+### Build from Source
+
+#### Prerequisites
 - [Go 1.22+](https://go.dev/dl/) installed on your system.
 
-### 2. Build Binary
+#### Compile Binary
 Compile an optimized, standalone executable:
-
+```powershell
+make build
+```
+Or directly using `go build`:
 ```powershell
 go build -ldflags="-s -w" -o Dmanga.exe ./cmd/dmanga
 ```
 
-Alternatively, you can compile directly using the provided Makefile:
-```powershell
-make build
+---
+
+## Updating Dmanga
+
+Update to the latest release automatically with safe rollback and SHA256 checksum verification:
+```cmd
+Dmanga update
 ```
 
-### 3. Add to System PATH (Optional)
-To run `Dmanga` from any directory in Command Prompt or PowerShell:
-1. Place `Dmanga.exe` into a permanent directory (e.g., `C:\Tools\`).
-2. Add `C:\Tools` to your system `PATH` environment variable.
+Check if a new release is available without updating:
+```cmd
+Dmanga --check-update
+```
 
 ---
 

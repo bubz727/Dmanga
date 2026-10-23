@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"dmanga/internal/downloader"
+	"dmanga/internal/fetcher"
 )
 
 // Run executes the CLI command workflow based on provided args
@@ -148,6 +149,10 @@ func Run(args []string) {
 	defer pf.Close()
 
 	for idx, chapterURL := range urls {
+		if fetcher.Context().Err() != nil {
+			fmt.Println("\n[!] Interrupted by user. Remaining chapters were skipped.")
+			break
+		}
 		target := targets[idx]
 		if target.Err != nil {
 			if errors.Is(target.Err, errInvalidURL) {

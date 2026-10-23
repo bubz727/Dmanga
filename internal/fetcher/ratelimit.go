@@ -27,7 +27,7 @@ func CheckRateLimitCooldown() {
 	rateLimitMu.RUnlock()
 
 	if until > 0 {
-		time.Sleep(until)
+		Sleep(until)
 	}
 }
 

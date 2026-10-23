@@ -23,6 +23,11 @@ const (
 	progressBarWidth = 16
 	progressInterval = 100 * time.Millisecond
 	minThrottleLimit = 2
+
+	// Circuit breaker: if more than breakerMaxFailed of the first breakerSample finished images failed,
+	// the remaining images of the chapter are skipped instead of grinding through every retry.
+	breakerSample    = 10
+	breakerMaxFailed = 5
 )
 
 // Options controls how DownloadAll runs.
@@ -117,9 +122,10 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser,
 		out = os.Stdout
 	}
 
-	var completedCount, failedCount, totalBytes atomic.Int64
+	var completedCount, failedCount, totalBytes, finishedCount atomic.Int64
+	var aborted atomic.Bool
 	startTime := time.Now()
-	failCh := make(chan string, total)
+	failCh := make(chan string, total+1)
 
 	draw := func() {
 		done := int(completedCount.Load() + failedCount.Load())
@@ -196,6 +202,11 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser,
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
+				if aborted.Load() || fetcher.Context().Err() != nil {
+					failedCount.Add(1)
+					continue
+				}
+
 				lim.acquire()
 
 				ext := utils.GetFileExtension(j.url)
@@ -206,10 +217,18 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser,
 
 				if err != nil {
 					failedCount.Add(1)
-					failCh <- fmt.Sprintf("[!] [FAILED] %s: %v", baseName+ext, err)
+					if fetcher.Context().Err() == nil {
+						failCh <- fmt.Sprintf("[!] [FAILED] %s: %v", baseName+ext, err)
+					}
 				} else {
 					completedCount.Add(1)
 					totalBytes.Add(size)
+				}
+
+				if finishedCount.Add(1) == breakerSample && total > breakerSample && failedCount.Load() > breakerMaxFailed {
+					if aborted.CompareAndSwap(false, true) {
+						failCh <- fmt.Sprintf("[!] %d of the first %d images failed; skipping the remaining images of this chapter", failedCount.Load(), breakerSample)
+					}
 				}
 			}
 		}()
@@ -220,6 +239,9 @@ func DownloadAll(imageURLs []string, targetDir, host string, parser core.Parser,
 	<-rendered
 
 	completed, failed = int(completedCount.Load()), int(failedCount.Load())
+	if fetcher.Context().Err() != nil {
+		fmt.Fprintln(out, "[!] Interrupted by user.")
+	}
 	if failed > 0 {
 		fmt.Fprintf(out, "[!] Warning: %d out of %d images failed to download.\n", failed, total)
 	}

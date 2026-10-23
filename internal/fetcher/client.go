@@ -26,7 +26,7 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		CheckRateLimitCooldown()
 
-		req, err := http.NewRequest("GET", pageURL, nil)
+		req, err := http.NewRequestWithContext(Context(), "GET", pageURL, nil)
 		if err != nil {
 			return nil, "", err
 		}
@@ -56,8 +56,13 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 
 		resp, err := client.Do(req)
 		if err != nil {
+			if Context().Err() != nil {
+				return nil, "", Context().Err()
+			}
 			if attempt < maxRetries {
-				time.Sleep(2 * time.Second)
+				if !Sleep(Backoff(attempt)) {
+					return nil, "", Context().Err()
+				}
 				continue
 			}
 			return nil, "", err
@@ -70,15 +75,22 @@ func FetchHTML(pageURL string, customHeaders map[string]string) (*goquery.Docume
 			fmt.Printf("\n[!] [RATE LIMIT WARNING] '%s' returned HTTP 429 (Too Many Requests)!\n", parsed.Host)
 			fmt.Printf("[*] Pausing requests for %v before retrying (attempt %d/%d)...\n\n", retryAfter, attempt+1, maxRetries)
 			TriggerRateLimitCooldown(retryAfter)
-			time.Sleep(retryAfter)
+			if !Sleep(retryAfter) {
+				return nil, "", Context().Err()
+			}
 			continue
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
+			if Context().Err() != nil {
+				return nil, "", Context().Err()
+			}
 			if attempt < maxRetries {
-				time.Sleep(1 * time.Second)
+				if !Sleep(Backoff(attempt)) {
+					return nil, "", Context().Err()
+				}
 				continue
 			}
 			return nil, "", err

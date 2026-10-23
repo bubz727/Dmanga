@@ -2,6 +2,7 @@ package downloader
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"dmanga/internal/core"
@@ -20,17 +22,106 @@ import (
 // when a server reports a bogus length.
 const maxPreallocBytes = 64 << 20
 
-// readBody reads the response body into memory, pre-sizing the buffer from Content-Length
-// when it is known to avoid repeated slice growth.
-func readBody(resp *http.Response) ([]byte, error) {
+// maxRetries is the number of retries after the first attempt for a single image.
+const maxRetries = 3
+
+// StallTimeout is how long an image body may go without receiving any bytes before the attempt is aborted
+// and retried. It is a variable so tests can shorten it.
+var StallTimeout = 15 * time.Second
+
+// stallReader aborts a download (via cancel) when no data arrives for StallTimeout.
+type stallReader struct {
+	r       io.Reader
+	timer   *time.Timer
+	timeout time.Duration
+	stalled atomic.Bool
+}
+
+func (s *stallReader) Read(p []byte) (int, error) {
+	n, err := s.r.Read(p)
+	if n > 0 {
+		s.timer.Reset(s.timeout)
+	}
+	return n, err
+}
+
+// readBody reads the response body into memory, pre-sizing the buffer from Content-Length when known.
+// If no bytes arrive for StallTimeout the request is cancelled and a stall error is returned.
+func readBody(resp *http.Response, cancel context.CancelFunc) ([]byte, error) {
+	sr := &stallReader{r: resp.Body, timeout: StallTimeout}
+	sr.timer = time.AfterFunc(sr.timeout, func() {
+		sr.stalled.Store(true)
+		cancel()
+	})
+	defer sr.timer.Stop()
+
 	var buf bytes.Buffer
 	if n := resp.ContentLength; n > 0 && n <= maxPreallocBytes {
 		buf.Grow(int(n))
 	}
-	if _, err := io.Copy(&buf, resp.Body); err != nil {
+	if _, err := io.Copy(&buf, sr); err != nil {
+		if sr.stalled.Load() {
+			return nil, fmt.Errorf("download stalled: no data received for %v", sr.timeout)
+		}
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// attemptResult describes the outcome of one HTTP attempt.
+type attemptResult struct {
+	body      []byte
+	err       error
+	retryable bool
+	delay     time.Duration // wait before the next attempt when retryable
+}
+
+// fetchAttempt performs a single GET for an image and classifies the outcome.
+func fetchAttempt(client *http.Client, fetchURL, host, origName string, attempt int) attemptResult {
+	parent := fetcher.Context()
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", fetchURL, nil)
+	if err != nil {
+		return attemptResult{err: err}
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+	req.Header.Set("Referer", fmt.Sprintf("https://%s/", host))
+	fetcher.ApplySessionHeaders(req, host)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		if parent.Err() != nil {
+			return attemptResult{err: parent.Err()}
+		}
+		return attemptResult{err: err, retryable: true, delay: fetcher.Backoff(attempt)}
+	}
+	defer resp.Body.Close()
+
+	// Handle Rate Limiting (HTTP 429)
+	if resp.StatusCode == http.StatusTooManyRequests {
+		retryAfter := fetcher.ParseRetryAfter(resp.Header.Get("Retry-After"), attempt)
+		fmt.Printf("\n[!] [RATE LIMIT WARNING] Host '%s' returned HTTP 429 (Too Many Requests)!\n", host)
+		fmt.Printf("[*] Pausing downloads for %v before retrying %s (attempt %d/%d)...\n\n", retryAfter, origName, attempt+1, maxRetries)
+		fetcher.TriggerRateLimitCooldown(retryAfter)
+		return attemptResult{err: fmt.Errorf("status code %d (rate limited)", resp.StatusCode), retryable: true, delay: retryAfter}
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		retryable := resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusGatewayTimeout || resp.StatusCode == http.StatusServiceUnavailable
+		return attemptResult{err: fmt.Errorf("status code %d", resp.StatusCode), retryable: retryable, delay: fetcher.Backoff(attempt)}
+	}
+
+	body, err := readBody(resp, cancel)
+	if err != nil {
+		if parent.Err() != nil {
+			return attemptResult{err: parent.Err()}
+		}
+		return attemptResult{err: err, retryable: true, delay: fetcher.Backoff(attempt)}
+	}
+	return attemptResult{body: body}
 }
 
 // DownloadFile downloads a single image, processes it (descrambling/format conversion), and saves it to disk.
@@ -50,72 +141,35 @@ func DownloadFile(client *http.Client, fileURL, targetDir, baseName, defaultExt,
 		}
 	}
 
-	maxRetries := 3
 	var bodyBytes []byte
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		fetcher.CheckRateLimitCooldown()
-
-		req, reqErr := http.NewRequest("GET", fetchURL, nil)
-		if reqErr != nil {
-			return "", 0, reqErr
+		if err := fetcher.Context().Err(); err != nil {
+			return "", 0, err
 		}
 
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-		req.Header.Set("Referer", fmt.Sprintf("https://%s/", host))
-		fetcher.ApplySessionHeaders(req, host)
-
-		resp, doErr := client.Do(req)
-		if doErr != nil {
-			lastErr = doErr
-			if attempt < maxRetries {
-				time.Sleep(2 * time.Second)
-				continue
-			}
-			return "", 0, lastErr
+		res := fetchAttempt(client, fetchURL, host, origName, attempt)
+		if res.err == nil {
+			bodyBytes = res.body
+			lastErr = nil
+			break
 		}
+		lastErr = res.err
 
-		// Handle Rate Limiting (HTTP 429)
-		if resp.StatusCode == http.StatusTooManyRequests {
-			resp.Body.Close()
-			lastErr = fmt.Errorf("status code %d (rate limited)", resp.StatusCode)
-			retryAfter := fetcher.ParseRetryAfter(resp.Header.Get("Retry-After"), attempt)
-			fmt.Printf("\n[!] [RATE LIMIT WARNING] Host '%s' returned HTTP 429 (Too Many Requests)!\n", host)
-			fmt.Printf("[*] Pausing downloads for %v before retrying %s (attempt %d/%d)...\n\n", retryAfter, origName, attempt+1, maxRetries)
-			fetcher.TriggerRateLimitCooldown(retryAfter)
-			time.Sleep(retryAfter)
-			continue
+		if !res.retryable {
+			return "", 0, res.err
 		}
-
-		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
-			lastErr = fmt.Errorf("status code %d", resp.StatusCode)
-			if attempt < maxRetries && (resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusGatewayTimeout || resp.StatusCode == http.StatusServiceUnavailable) {
-				time.Sleep(3 * time.Second)
-				continue
-			}
-			return "", 0, lastErr
+		if attempt == maxRetries {
+			break
 		}
-
-		body, readErr := readBody(resp)
-		resp.Body.Close()
-		if readErr != nil {
-			lastErr = readErr
-			if attempt < maxRetries {
-				time.Sleep(1 * time.Second)
-				continue
-			}
-			return "", 0, lastErr
+		if !fetcher.Sleep(res.delay) {
+			return "", 0, fetcher.Context().Err()
 		}
-
-		// Successfully read body
-		bodyBytes = body
-		lastErr = nil
-		break
 	}
 
-	// All attempts exhausted without obtaining a body (e.g. persistent HTTP 429): never write an empty file
+	// All attempts exhausted without obtaining a body: never write an empty file
 	if bodyBytes == nil {
 		if lastErr == nil {
 			lastErr = errors.New("no data received")
